@@ -1,0 +1,72 @@
+package analisis;
+
+// importaciones necesarias
+import java_cup.runtime.Symbol;
+import com.olc1.ast.ASTNode;
+import com.olc1.ast.exp.*;
+import com.olc1.ast.stm.*;
+
+parser code
+{:
+    Scanner s;
+    parser(Scanner s) {
+        this.s = s;
+    }
+
+    public void syntax_error(Symbol s) {
+        System.err.println("Error de sintaxis en la línea " + s.left + ", columna " + s.right);
+    }
+
+    public void unrecovered_syntax_error(Symbol s) {
+        System.err.println("Error de sintaxis no recuperable en la línea " + s.left + ", columna " + s.right);
+    }
+:}
+
+action code
+{:
+    String consola = "";
+:}
+
+terminal String CADENA, ENTERO, DECIMAL, ID;
+terminal FINCADENA, IMPRIMIR;
+terminal MAS, MENOS, MULT, DIV, PAR1, PAR2, UMENOS;
+terminal TRUE, FALSE;
+terminal ASIGNAR;
+
+nonterminal ASTNode INICIO;
+nonterminal ASTNode INSTRUCCIONES, INSTRUCCION;
+nonterminal ASTNode EXPRESION;
+
+precedence left MAS, MENOS;
+precedence left MULT, DIV;
+precedence right UMENOS;
+
+start with INICIO;
+
+// Gramatica
+
+INICIO ::= INSTRUCCIONES:ins    {: RESULT = ins; :}
+;
+
+INSTRUCCIONES ::= INSTRUCCIONES:list INSTRUCCION:inst {: RESULT = inst; /* Temporal */ :}
+                | INSTRUCCION:inst                    {: RESULT = inst; /* Temporal */ :}
+;
+
+INSTRUCCION ::= IMPRIMIR PAR1 EXPRESION:e PAR2 FINCADENA  {: RESULT = e; /* Temporal */ :}
+              | ID:id ASIGNAR EXPRESION:e FINCADENA       {: RESULT = new Assign(id, e, idleft, idright); :} // <--- NUEVA REGLA
+;
+
+EXPRESION ::= MENOS EXPRESION:a               {: RESULT = new Negate(a); :} %prec UMENOS
+            | EXPRESION:a MAS EXPRESION:b     {: RESULT = new Add(a, b); :}
+            | EXPRESION:a MENOS EXPRESION:b   {: RESULT = new Sub(a, b); :}
+            | EXPRESION:a MULT EXPRESION:b    {: RESULT = new Mul(a, b); :}
+            | EXPRESION:a DIV EXPRESION:b     {: RESULT = new Div(a, b); :}                  
+            | PAR1 EXPRESION:e PAR2           {: RESULT = new Paren(e); :}
+            | ENTERO:e                        {: RESULT = new Integers(Integer.parseInt(e), eleft, eright); :}
+            | DECIMAL:e                       {: RESULT = new Decimal(Double.parseDouble(e), eleft, eright); :}
+            | CADENA:e                        {: RESULT = new StringLiteral(e, eleft, eright); :} // <--- Nuevo
+            | TRUE:e                          {: RESULT = new BoolLiteral(true, eleft, eright); :}  // <--- Nuevo
+            | FALSE:e                         {: RESULT = new BoolLiteral(false, eleft, eright); :} // <--- Nuevo
+            | ID:id                           {: RESULT = new VarRef(id, idleft, idright); :}
+;
+
