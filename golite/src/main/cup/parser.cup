@@ -44,7 +44,8 @@ terminal TRUE, FALSE;
 terminal ASIGNAR;
 terminal IGUAL, DIFERENTE, MENOR, MAYOR, MENORIGUAL, MAYORIGUAL;
 terminal AND, OR, NOT;
-terminal IF, ELSE, LLAVE1, LLAVE2;
+terminal IF, ELSE, LLAVE1, LLAVE2, FOR;
+terminal BREAK, CONTINUE;
 
 nonterminal ASTNode INICIO;
 nonterminal ASTNode INSTRUCCIONES, INSTRUCCION;
@@ -91,6 +92,17 @@ INSTRUCCION ::= IMPRIMIR PAR1 EXPRESION:e PAR2 FINCADENA  {: RESULT = new Imprim
                       // Esto nos permite encadenar "else if" de forma limpia e indefinida
                       RESULT = new IfNode(cond, cuerpo, instElse); 
                   :}
+              | FOR EXPRESION:cond LLAVE1 INSTRUCCIONES:cuerpo LLAVE2
+                  {: RESULT = new com.olc1.ast.stm.ForNode(null, cond, null, cuerpo); :}
+              
+              | FOR ID:idInit ASIGNAR EXPRESION:eInit FINCADENA EXPRESION:cond FINCADENA ID:idInc ASIGNAR EXPRESION:eInc LLAVE1 INSTRUCCIONES:cuerpo LLAVE2
+                  {: 
+                     ASTNode initNode = new Assign(idInit, eInit, idInitleft, idInitright);
+                     ASTNode incNode  = new Assign(idInc, eInc, idIncleft, idIncright);
+                     RESULT = new com.olc1.ast.stm.ForNode(initNode, cond, incNode, cuerpo); 
+                  :}
+              | BREAK FINCADENA       {: RESULT = new com.olc1.ast.stm.BreakNode(); :}
+              | CONTINUE FINCADENA    {: RESULT = new com.olc1.ast.stm.ContinueNode(); :}
 ;
 
 EXPRESION ::= MENOS EXPRESION:a               {: RESULT = new Negate(a); :} %prec UMENOS

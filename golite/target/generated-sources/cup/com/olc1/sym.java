@@ -10,6 +10,7 @@ public interface sym {
   /* terminals */
   public static final int AND = 24;
   public static final int MENOS = 9;
+  public static final int CONTINUE = 33;
   public static final int MENOR = 20;
   public static final int ELSE = 28;
   public static final int CADENA = 2;
@@ -29,6 +30,7 @@ public interface sym {
   public static final int EOF = 0;
   public static final int MULT = 10;
   public static final int DIFERENTE = 19;
+  public static final int BREAK = 32;
   public static final int DIV = 11;
   public static final int MAYORIGUAL = 23;
   public static final int FALSE = 16;
@@ -38,6 +40,7 @@ public interface sym {
   public static final int LLAVE1 = 29;
   public static final int PAR1 = 12;
   public static final int ENTERO = 3;
+  public static final int FOR = 31;
   public static final int MAS = 8;
   public static final String[] terminalNames = new String[] {
   "EOF",
@@ -70,7 +73,10 @@ public interface sym {
   "IF",
   "ELSE",
   "LLAVE1",
-  "LLAVE2"
+  "LLAVE2",
+  "FOR",
+  "BREAK",
+  "CONTINUE"
   };
 }
 

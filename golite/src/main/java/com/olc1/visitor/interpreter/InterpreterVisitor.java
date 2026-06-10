@@ -8,6 +8,9 @@ import com.olc1.ast.stm.*;
 import com.olc1.ast.exp.*;
 import com.olc1.visitor.Visitor;
 import com.olc1.visitor.interpreter.values.*;
+import com.olc1.ast.stm.BreakException;
+import com.olc1.ast.stm.ContinueException;
+
 
 public class InterpreterVisitor implements Visitor<ValueWrapper> {
     public String output = "";
@@ -210,5 +213,47 @@ public class InterpreterVisitor implements Visitor<ValueWrapper> {
             return new BoolValue(res, ctx.line(), ctx.column());
         }
         throw new RuntimeException("Los operadores '&&' y '||' requieren valores booleanos");
+    }
+
+    @Override
+    public ValueWrapper visit(com.olc1.ast.stm.ForNode.Context ctx) {
+        if (ctx.init() != null) {
+            Visit(ctx.init());
+        }
+
+        while (true) {
+            ValueWrapper cond = Visit(ctx.condition());
+            if (!(cond instanceof BoolValue b && b.value())) {
+                break;
+            }
+
+            try {
+                // Ejecuta las instrucciones internas del cuerpo del ciclo
+                Visit(ctx.body());
+            } catch (BreakException ex) {
+                // Si encuentra un break, sale del ciclo while de Java inmediatamente
+                break; 
+            } catch (ContinueException ex) {
+                // Si encuentra un continue, ignora el resto del cuerpo y cae directo al incremento
+                // No hace nada aquí, permitiendo que el flujo continúe hacia abajo
+            }
+
+            // El incremento siempre se ejecuta al terminar la iteración (salvo si hubo break)
+            if (ctx.increment() != null) {
+                Visit(ctx.increment());
+            }
+        }
+
+        return defaultVoid;
+    }
+
+    @Override
+    public ValueWrapper visit(com.olc1.ast.stm.BreakNode node) {
+        throw new BreakException(); // Lanza la señal de parada
+    }
+
+    @Override
+    public ValueWrapper visit(com.olc1.ast.stm.ContinueNode node) {
+        throw new ContinueException(); // Lanza la señal de salto
     }
 }

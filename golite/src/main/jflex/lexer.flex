@@ -45,10 +45,16 @@ COMENTARIO_MULTI = "/*" [^*]* "*"+ ([^*/][^*]* "*"+)* "/"
 
 <YYINITIAL> {
     // 1. Palabras reservadas lógicas de GoLite (en minúsculas)
+    "for"           { return new Symbol(sym.FOR, yyline, yycolumn, yytext()); }
     "if"            { return new Symbol(sym.IF, yyline, yycolumn, yytext()); }
     "else"          { return new Symbol(sym.ELSE, yyline, yycolumn, yytext()); }
     "true"          { return new Symbol(sym.TRUE, yyline, yycolumn, yytext()); }
     "false"         { return new Symbol(sym.FALSE, yyline, yycolumn, yytext()); }
+    "break"         { return new Symbol(sym.BREAK, yyline, yycolumn, yytext()); }
+    "continue"      { return new Symbol(sym.CONTINUE, yyline, yycolumn, yytext()); }
+    "for"           { return new Symbol(sym.FOR, yyline, yycolumn, yytext()); }
+    "if"            { return new Symbol(sym.IF, yyline, yycolumn, yytext()); }
+    "else"          { return new Symbol(sym.ELSE, yyline, yycolumn, yytext()); }
     
     
     // Mapeamos provisionalmente la función nativa de impresión

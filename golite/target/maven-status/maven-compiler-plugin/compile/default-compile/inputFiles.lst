@@ -13,6 +13,11 @@ c:\Users\diego\Documents\Repositorios 2026\EJ26_OLC1_202300627\golite\src\main\j
 c:\Users\diego\Documents\Repositorios 2026\EJ26_OLC1_202300627\golite\src\main\java\com\olc1\ast\exp\Sub.java
 c:\Users\diego\Documents\Repositorios 2026\EJ26_OLC1_202300627\golite\src\main\java\com\olc1\ast\exp\VarRef.java
 c:\Users\diego\Documents\Repositorios 2026\EJ26_OLC1_202300627\golite\src\main\java\com\olc1\ast\stm\Assign.java
+c:\Users\diego\Documents\Repositorios 2026\EJ26_OLC1_202300627\golite\src\main\java\com\olc1\ast\stm\BreakException.java
+c:\Users\diego\Documents\Repositorios 2026\EJ26_OLC1_202300627\golite\src\main\java\com\olc1\ast\stm\BreakNode.java
+c:\Users\diego\Documents\Repositorios 2026\EJ26_OLC1_202300627\golite\src\main\java\com\olc1\ast\stm\ContinueException.java
+c:\Users\diego\Documents\Repositorios 2026\EJ26_OLC1_202300627\golite\src\main\java\com\olc1\ast\stm\ContinueNode.java
+c:\Users\diego\Documents\Repositorios 2026\EJ26_OLC1_202300627\golite\src\main\java\com\olc1\ast\stm\ForNode.java
 c:\Users\diego\Documents\Repositorios 2026\EJ26_OLC1_202300627\golite\src\main\java\com\olc1\ast\stm\IfNode.java
 c:\Users\diego\Documents\Repositorios 2026\EJ26_OLC1_202300627\golite\src\main\java\com\olc1\ast\stm\Imprimir.java
 c:\Users\diego\Documents\Repositorios 2026\EJ26_OLC1_202300627\golite\src\main\java\com\olc1\ast\stm\Statments.java
