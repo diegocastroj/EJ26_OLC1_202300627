@@ -57,6 +57,9 @@ COMENTARIO_MULTI = "/*" [^*]* "*"+ ([^*/][^*]* "*"+)* "/"
     "for"           { return new Symbol(sym.FOR, yyline, yycolumn, yytext()); }
     "if"            { return new Symbol(sym.IF, yyline, yycolumn, yytext()); }
     "else"          { return new Symbol(sym.ELSE, yyline, yycolumn, yytext()); }
+    "reflect.TypeOf"     { return new Symbol(sym.REFLECT, yyline, yycolumn, yytext()); }
+    "strconv.Atoi"       { return new Symbol(sym.ATOI, yyline, yycolumn, yytext()); }
+    "strconv.ParseFloat" { return new Symbol(sym.PARSEFLOAT, yyline, yycolumn, yytext()); }
     
     
     // Mapeamos provisionalmente la función nativa de impresión
@@ -84,6 +87,7 @@ COMENTARIO_MULTI = "/*" [^*]* "*"+ ([^*/][^*]* "*"+)* "/"
     ")"             { return new Symbol(sym.PAR2, yyline, yycolumn, yytext()); }
     "{"             { return new Symbol(sym.LLAVE1, yyline, yycolumn, yytext()); }
     "}"             { return new Symbol(sym.LLAVE2, yyline, yycolumn, yytext()); }
+    "%"             { return new Symbol(sym.MOD, yyline, yycolumn, yytext()); }
 
     // 3. Literales e Identificadores (¡El orden importa! Primero expresiones numéricas, luego IDs)
     {DECIMAL}       { return new Symbol(sym.DECIMAL, yyline, yycolumn, yytext()); }

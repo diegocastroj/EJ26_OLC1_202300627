@@ -39,7 +39,7 @@ action code
 
 terminal String CADENA, ENTERO, DECIMAL, ID;
 terminal FINCADENA, IMPRIMIR;
-terminal MAS, MENOS, MULT, DIV, PAR1, PAR2, UMENOS;
+terminal MAS, MENOS, MULT, DIV, PAR1, PAR2, UMENOS, MOD;
 terminal TRUE, FALSE;
 terminal ASIGNAR;
 terminal IGUAL, DIFERENTE, MENOR, MAYOR, MENORIGUAL, MAYORIGUAL;
@@ -47,16 +47,17 @@ terminal AND, OR, NOT;
 terminal IF, ELSE, LLAVE1, LLAVE2, FOR;
 terminal BREAK, CONTINUE;
 terminal ATOI, PARSEFLOAT;
+terminal REFLECT;
 
 nonterminal ASTNode INICIO;
 nonterminal ASTNode INSTRUCCIONES, INSTRUCCION;
 nonterminal ASTNode EXPRESION;
 
-precedence left OR;
+    precedence left OR;
 precedence left AND;
 precedence left IGUAL, DIFERENTE, MENOR, MAYOR, MENORIGUAL, MAYORIGUAL;
 precedence left MAS, MENOS;
-precedence left MULT, DIV;
+precedence left MULT, DIV, MOD;
 precedence right NOT, UMENOS;
 start with INICIO;
 
@@ -110,7 +111,8 @@ EXPRESION ::= MENOS EXPRESION:a               {: RESULT = new Negate(a); :} %pre
             | EXPRESION:a MAS EXPRESION:b     {: RESULT = new Add(a, b); :}
             | EXPRESION:a MENOS EXPRESION:b   {: RESULT = new Sub(a, b); :}
             | EXPRESION:a MULT EXPRESION:b    {: RESULT = new Mul(a, b); :}
-            | EXPRESION:a DIV EXPRESION:b     {: RESULT = new Div(a, b); :}                  
+            | EXPRESION:a DIV EXPRESION:b     {: RESULT = new Div(a, b); :}  
+            | EXPRESION:a MOD EXPRESION:b         {: RESULT = new com.olc1.ast.exp.Mod(a, b, aleft, aright); :}
             | PAR1 EXPRESION:e PAR2           {: RESULT = new Paren(e); :}
             
             // === OPERADORES RELACIONALES ===
@@ -137,4 +139,9 @@ EXPRESION ::= MENOS EXPRESION:a               {: RESULT = new Negate(a); :} %pre
             // === FUNCIONES EMBEBIDAS NUMÉRICAS ===
             | ATOI:a PAR1 EXPRESION:e PAR2          {: RESULT = new com.olc1.ast.exp.StrConvNode("atoi", e, aleft, aright); :}
             | PARSEFLOAT:p PAR1 EXPRESION:e PAR2    {: RESULT = new com.olc1.ast.exp.StrConvNode("parsefloat", e, pleft, pright); :}
+
+            // === FUNCION EMBEBIDA DE TIPO ===
+            | REFLECT:r PAR1 EXPRESION:e PAR2       {: RESULT = new com.olc1.ast.exp.ReflectNode(e, rleft, rright); :}
 ;
+
+

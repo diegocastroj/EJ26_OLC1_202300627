@@ -10,39 +10,41 @@ public interface sym {
   /* terminals */
   public static final int PAR2 = 13;
   public static final int PAR1 = 12;
-  public static final int ASIGNAR = 17;
+  public static final int ASIGNAR = 18;
   public static final int MULT = 10;
-  public static final int LLAVE2 = 30;
-  public static final int LLAVE1 = 29;
+  public static final int REFLECT = 37;
+  public static final int LLAVE2 = 31;
+  public static final int LLAVE1 = 30;
   public static final int IMPRIMIR = 7;
   public static final int ENTERO = 3;
-  public static final int DIFERENTE = 19;
-  public static final int CONTINUE = 33;
-  public static final int FOR = 31;
-  public static final int NOT = 26;
+  public static final int DIFERENTE = 20;
+  public static final int CONTINUE = 34;
+  public static final int FOR = 32;
+  public static final int NOT = 27;
   public static final int FINCADENA = 6;
-  public static final int MENORIGUAL = 22;
-  public static final int AND = 24;
-  public static final int IGUAL = 18;
-  public static final int PARSEFLOAT = 35;
-  public static final int OR = 25;
+  public static final int MENORIGUAL = 23;
+  public static final int AND = 25;
+  public static final int IGUAL = 19;
+  public static final int PARSEFLOAT = 36;
+  public static final int OR = 26;
   public static final int DIV = 11;
-  public static final int ATOI = 34;
+  public static final int ATOI = 35;
   public static final int UMENOS = 14;
-  public static final int IF = 27;
+  public static final int IF = 28;
   public static final int ID = 5;
-  public static final int MAYORIGUAL = 23;
+  public static final int MAYORIGUAL = 24;
   public static final int EOF = 0;
   public static final int DECIMAL = 4;
-  public static final int TRUE = 15;
+  public static final int TRUE = 16;
   public static final int error = 1;
   public static final int CADENA = 2;
   public static final int MENOS = 9;
-  public static final int MENOR = 20;
-  public static final int BREAK = 32;
-  public static final int MAYOR = 21;
-  public static final int ELSE = 28;
-  public static final int FALSE = 16;
+  public static final int MENOR = 21;
+  public static final int MOD = 15;
+  public static final int BREAK = 33;
+  public static final int MAYOR = 22;
+  public static final int ELSE = 29;
+  public static final int FALSE = 17;
   public static final int MAS = 8;
   public static final String[] terminalNames = new String[] {
   "EOF",
@@ -60,6 +62,7 @@ public interface sym {
   "PAR1",
   "PAR2",
   "UMENOS",
+  "MOD",
   "TRUE",
   "FALSE",
   "ASIGNAR",
@@ -80,7 +83,8 @@ public interface sym {
   "BREAK",
   "CONTINUE",
   "ATOI",
-  "PARSEFLOAT"
+  "PARSEFLOAT",
+  "REFLECT"
   };
 }
 
