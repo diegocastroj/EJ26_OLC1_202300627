@@ -1,4 +1,4 @@
-package analisis;
+package com.olc1;
 
 // importaciones necesarias
 import java_cup.runtime.Symbol;
@@ -8,17 +8,27 @@ import com.olc1.ast.stm.*;
 
 parser code
 {:
-    Scanner s;
-    parser(Scanner s) {
+    Lexer s;
+    public java.util.ArrayList<com.olc1.reports.GoliteError> errors = new java.util.ArrayList<>();
+
+    parser(Lexer s) {
         this.s = s;
     }
 
     public void syntax_error(Symbol s) {
-        System.err.println("Error de sintaxis en la línea " + s.left + ", columna " + s.right);
+        String desc = "No se esperaba el token '" + s.value + "'";
+        System.err.println("Error sintáctico: " + desc + " en línea " + s.left + ", columna " + s.right);
+        
+        // ORDEN CORRECTO: Tipo (String), Descripción (String), Línea (int), Columna (int)
+        errors.add(new com.olc1.reports.GoliteError("Sintáctico", desc, s.left, s.right));
     }
 
     public void unrecovered_syntax_error(Symbol s) {
-        System.err.println("Error de sintaxis no recuperable en la línea " + s.left + ", columna " + s.right);
+        String desc = "Error sintáctico fatal: No se pudo recuperar el analizador";
+        System.err.println(desc + " en línea " + s.left + ", columna " + s.right);
+        
+        // ORDEN CORRECTO: Tipo (String), Descripción (String), Línea (int), Columna (int)
+        errors.add(new com.olc1.reports.GoliteError("Sintáctico", desc, s.left, s.right));
     }
 :}
 
@@ -32,15 +42,19 @@ terminal FINCADENA, IMPRIMIR;
 terminal MAS, MENOS, MULT, DIV, PAR1, PAR2, UMENOS;
 terminal TRUE, FALSE;
 terminal ASIGNAR;
+terminal IGUAL, DIFERENTE, MENOR, MAYOR, MENORIGUAL, MAYORIGUAL;
+terminal AND, OR, NOT;
 
 nonterminal ASTNode INICIO;
 nonterminal ASTNode INSTRUCCIONES, INSTRUCCION;
 nonterminal ASTNode EXPRESION;
 
+precedence left OR;
+precedence left AND;
+precedence left IGUAL, DIFERENTE, MENOR, MAYOR, MENORIGUAL, MAYORIGUAL;
 precedence left MAS, MENOS;
 precedence left MULT, DIV;
-precedence right UMENOS;
-
+precedence right NOT, UMENOS;
 start with INICIO;
 
 // Gramatica
@@ -48,25 +62,52 @@ start with INICIO;
 INICIO ::= INSTRUCCIONES:ins    {: RESULT = ins; :}
 ;
 
-INSTRUCCIONES ::= INSTRUCCIONES:list INSTRUCCION:inst {: RESULT = inst; /* Temporal */ :}
-                | INSTRUCCION:inst                    {: RESULT = inst; /* Temporal */ :}
+INSTRUCCIONES ::= INSTRUCCIONES:list INSTRUCCION:inst 
+                  {: 
+                     // Como la lista es privada, llamamos al método público add() del nodo.
+                     // Nota: Si te da error "cannot find symbol", cámbialo por: list.addStatement(inst);
+                     ((com.olc1.ast.stm.Statments)list).add(inst); 
+                     RESULT = list; 
+                  :}
+                | INSTRUCCION:inst                    
+                  {: 
+                     // El constructor te exige pasarle la primera instrucción obligatoriamente
+                     RESULT = new com.olc1.ast.stm.Statments(inst);
+                  :}
 ;
 
-INSTRUCCION ::= IMPRIMIR PAR1 EXPRESION:e PAR2 FINCADENA  {: RESULT = e; /* Temporal */ :}
-              | ID:id ASIGNAR EXPRESION:e FINCADENA       {: RESULT = new Assign(id, e, idleft, idright); :} // <--- NUEVA REGLA
+INSTRUCCION ::= IMPRIMIR PAR1 EXPRESION:e PAR2 FINCADENA  {: RESULT = new Imprimir(e); :}
+              | ID:id ASIGNAR EXPRESION:e FINCADENA       
+                  {: 
+                     // Pasamos el ID, la expresión, la línea (idleft) y la columna (idright)
+                     RESULT = new Assign(id, e, idleft, idright); 
+                  :}
 ;
-
 EXPRESION ::= MENOS EXPRESION:a               {: RESULT = new Negate(a); :} %prec UMENOS
             | EXPRESION:a MAS EXPRESION:b     {: RESULT = new Add(a, b); :}
             | EXPRESION:a MENOS EXPRESION:b   {: RESULT = new Sub(a, b); :}
             | EXPRESION:a MULT EXPRESION:b    {: RESULT = new Mul(a, b); :}
             | EXPRESION:a DIV EXPRESION:b     {: RESULT = new Div(a, b); :}                  
             | PAR1 EXPRESION:e PAR2           {: RESULT = new Paren(e); :}
+            
+            // === OPERADORES RELACIONALES ===
+            | EXPRESION:a IGUAL EXPRESION:b         {: RESULT = new RelationalOp("==", a, b, aleft, aright); :}
+            | EXPRESION:a DIFERENTE EXPRESION:b     {: RESULT = new RelationalOp("!=", a, b, aleft, aright); :}
+            | EXPRESION:a MENOR EXPRESION:b         {: RESULT = new RelationalOp("<", a, b, aleft, aright); :}
+            | EXPRESION:a MAYOR EXPRESION:b         {: RESULT = new RelationalOp(">", a, b, aleft, aright); :}
+            | EXPRESION:a MENORIGUAL EXPRESION:b    {: RESULT = new RelationalOp("<=", a, b, aleft, aright); :}
+            | EXPRESION:a MAYORIGUAL EXPRESION:b    {: RESULT = new RelationalOp(">=", a, b, aleft, aright); :}
+            
+            // === OPERADORES LÓGICOS ===
+            | EXPRESION:a AND EXPRESION:b           {: RESULT = new LogicalOp("&&", a, b, aleft, aright); :}
+            | EXPRESION:a OR EXPRESION:b            {: RESULT = new LogicalOp("||", a, b, aleft, aright); :}
+            | NOT EXPRESION:a                       {: RESULT = new LogicalOp("!", a, aleft, aright); :}
+            
+            // === LITERALES E IDENTIFICADORES ===
             | ENTERO:e                        {: RESULT = new Integers(Integer.parseInt(e), eleft, eright); :}
             | DECIMAL:e                       {: RESULT = new Decimal(Double.parseDouble(e), eleft, eright); :}
-            | CADENA:e                        {: RESULT = new StringLiteral(e, eleft, eright); :} // <--- Nuevo
-            | TRUE:e                          {: RESULT = new BoolLiteral(true, eleft, eright); :}  // <--- Nuevo
-            | FALSE:e                         {: RESULT = new BoolLiteral(false, eleft, eright); :} // <--- Nuevo
+            | CADENA:e                        {: RESULT = new StringLiteral(e, eleft, eright); :} 
+            | TRUE:e                          {: RESULT = new BoolLiteral(true, eleft, eright); :}  
+            | FALSE:e                         {: RESULT = new BoolLiteral(false, eleft, eright); :} 
             | ID:id                           {: RESULT = new VarRef(id, idleft, idright); :}
 ;
-

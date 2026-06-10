@@ -19,6 +19,11 @@
             <artifactId>java-cup-runtime</artifactId>
             <version>11b-20160615-3</version>
         </dependency>
+        <dependency>
+            <groupId>com.fifesoft</groupId>
+            <artifactId>rsyntaxtextarea</artifactId>
+            <version>3.3.3</version>
+        </dependency>
     </dependencies>
 
     <build>

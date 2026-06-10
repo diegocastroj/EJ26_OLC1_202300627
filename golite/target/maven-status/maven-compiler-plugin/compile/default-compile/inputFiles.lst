@@ -4,9 +4,11 @@ c:\Users\diego\Documents\Repositorios 2026\EJ26_OLC1_202300627\golite\src\main\j
 c:\Users\diego\Documents\Repositorios 2026\EJ26_OLC1_202300627\golite\src\main\java\com\olc1\ast\exp\Decimal.java
 c:\Users\diego\Documents\Repositorios 2026\EJ26_OLC1_202300627\golite\src\main\java\com\olc1\ast\exp\Div.java
 c:\Users\diego\Documents\Repositorios 2026\EJ26_OLC1_202300627\golite\src\main\java\com\olc1\ast\exp\Integers.java
+c:\Users\diego\Documents\Repositorios 2026\EJ26_OLC1_202300627\golite\src\main\java\com\olc1\ast\exp\LogicalOp.java
 c:\Users\diego\Documents\Repositorios 2026\EJ26_OLC1_202300627\golite\src\main\java\com\olc1\ast\exp\Mul.java
 c:\Users\diego\Documents\Repositorios 2026\EJ26_OLC1_202300627\golite\src\main\java\com\olc1\ast\exp\Negate.java
 c:\Users\diego\Documents\Repositorios 2026\EJ26_OLC1_202300627\golite\src\main\java\com\olc1\ast\exp\Paren.java
+c:\Users\diego\Documents\Repositorios 2026\EJ26_OLC1_202300627\golite\src\main\java\com\olc1\ast\exp\RelationalOp.java
 c:\Users\diego\Documents\Repositorios 2026\EJ26_OLC1_202300627\golite\src\main\java\com\olc1\ast\exp\StringLiteral.java
 c:\Users\diego\Documents\Repositorios 2026\EJ26_OLC1_202300627\golite\src\main\java\com\olc1\ast\exp\Sub.java
 c:\Users\diego\Documents\Repositorios 2026\EJ26_OLC1_202300627\golite\src\main\java\com\olc1\ast\exp\VarRef.java
@@ -15,6 +17,11 @@ c:\Users\diego\Documents\Repositorios 2026\EJ26_OLC1_202300627\golite\src\main\j
 c:\Users\diego\Documents\Repositorios 2026\EJ26_OLC1_202300627\golite\src\main\java\com\olc1\ast\stm\Imprimir.java
 c:\Users\diego\Documents\Repositorios 2026\EJ26_OLC1_202300627\golite\src\main\java\com\olc1\ast\stm\Statments.java
 c:\Users\diego\Documents\Repositorios 2026\EJ26_OLC1_202300627\golite\src\main\java\com\olc1\Main.java
+c:\Users\diego\Documents\Repositorios 2026\EJ26_OLC1_202300627\golite\src\main\java\com\olc1\reports\GoliteError.java
+c:\Users\diego\Documents\Repositorios 2026\EJ26_OLC1_202300627\golite\src\main\java\com\olc1\views\EditorPanel.java
+c:\Users\diego\Documents\Repositorios 2026\EJ26_OLC1_202300627\golite\src\main\java\com\olc1\views\GoliteFrame.java
+c:\Users\diego\Documents\Repositorios 2026\EJ26_OLC1_202300627\golite\src\main\java\com\olc1\views\GoliteMenuBar.java
+c:\Users\diego\Documents\Repositorios 2026\EJ26_OLC1_202300627\golite\src\main\java\com\olc1\views\MainPanel.java
 c:\Users\diego\Documents\Repositorios 2026\EJ26_OLC1_202300627\golite\src\main\java\com\olc1\visitor\interpreter\InterpreterVisitor.java
 c:\Users\diego\Documents\Repositorios 2026\EJ26_OLC1_202300627\golite\src\main\java\com\olc1\visitor\interpreter\values\BoolValue.java
 c:\Users\diego\Documents\Repositorios 2026\EJ26_OLC1_202300627\golite\src\main\java\com\olc1\visitor\interpreter\values\DecimalValue.java
@@ -23,6 +30,6 @@ c:\Users\diego\Documents\Repositorios 2026\EJ26_OLC1_202300627\golite\src\main\j
 c:\Users\diego\Documents\Repositorios 2026\EJ26_OLC1_202300627\golite\src\main\java\com\olc1\visitor\interpreter\values\ValueWrapper.java
 c:\Users\diego\Documents\Repositorios 2026\EJ26_OLC1_202300627\golite\src\main\java\com\olc1\visitor\interpreter\values\VoidValue.java
 c:\Users\diego\Documents\Repositorios 2026\EJ26_OLC1_202300627\golite\src\main\java\com\olc1\visitor\Visitor.java
-c:\Users\diego\Documents\Repositorios 2026\EJ26_OLC1_202300627\golite\target\generated-sources\cup\analisis\parser.java
-c:\Users\diego\Documents\Repositorios 2026\EJ26_OLC1_202300627\golite\target\generated-sources\cup\analisis\sym.java
-c:\Users\diego\Documents\Repositorios 2026\EJ26_OLC1_202300627\golite\target\generated-sources\jflex\analisis\Scanner.java
+c:\Users\diego\Documents\Repositorios 2026\EJ26_OLC1_202300627\golite\target\generated-sources\cup\com\olc1\parser.java
+c:\Users\diego\Documents\Repositorios 2026\EJ26_OLC1_202300627\golite\target\generated-sources\cup\com\olc1\sym.java
+c:\Users\diego\Documents\Repositorios 2026\EJ26_OLC1_202300627\golite\target\generated-sources\jflex\com\olc1\Lexer.java

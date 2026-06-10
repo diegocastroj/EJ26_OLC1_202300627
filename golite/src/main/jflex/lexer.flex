@@ -1,4 +1,4 @@
-package analisis;
+package com.olc1;
 
 // importaciones
 import java_cup.runtime.Symbol;
@@ -7,18 +7,14 @@ import java_cup.runtime.Symbol;
 
 // Código de usuario
 
-%{
-    String cadena = "";
-%}
-
 %init{
     yyline = 1;
     yycolumn = 1;
 %init}
 
-
+// Configuración de FLEX
 %cup 
-%class Scanner
+%class Lexer
 %public
 %line 
 %column 
@@ -26,13 +22,19 @@ import java_cup.runtime.Symbol;
 
 %state CADENA
 
+// Declaración unificada de variables globales en el Lexer
+%{
+    String cadena = "";
+    // Lista pública de errores léxicos que buscará GoliteFrame.java
+    public java.util.ArrayList<com.olc1.reports.GoliteError> errors = new java.util.ArrayList<>();
+%}
+
 // Expresiones regulares básicas
 BLANCOS = [\ \r\t\f\n]+
 ENTERO = [0-9]+
 DECIMAL = [0-9]+"."[0-9]+
 
 // NUEVOS MACROS OBLIGATORIOS PARA LA FASE 1
-// Un ID puede empezar con letra o guion bajo, seguido de letras, números o guiones bajos
 ID = [a-zA-Z_][a-zA-Z0-9_]*
 
 // Expresiones para ignorar comentarios de una línea (//) y multilínea (/* */)
@@ -50,6 +52,17 @@ COMENTARIO_MULTI = "/*" [^*]* "*"+ ([^*/][^*]* "*"+)* "/"
     "fmt.Println"   { return new Symbol(sym.IMPRIMIR, yyline, yycolumn, yytext()); }
 
     // 2. Signos y Operadores
+    "=="            { return new Symbol(sym.IGUAL, yyline, yycolumn, yytext()); }
+    "!="            { return new Symbol(sym.DIFERENTE, yyline, yycolumn, yytext()); }
+    "<="            { return new Symbol(sym.MENORIGUAL, yyline, yycolumn, yytext()); }
+    ">="            { return new Symbol(sym.MAYORIGUAL, yyline, yycolumn, yytext()); }
+    "<"             { return new Symbol(sym.MENOR, yyline, yycolumn, yytext()); }
+    ">"             { return new Symbol(sym.MAYOR, yyline, yycolumn, yytext()); }
+    
+    "&&"            { return new Symbol(sym.AND, yyline, yycolumn, yytext()); }
+    "||"            { return new Symbol(sym.OR, yyline, yycolumn, yytext()); }
+    "!"             { return new Symbol(sym.NOT, yyline, yycolumn, yytext()); }
+    
     "="             { return new Symbol(sym.ASIGNAR, yyline, yycolumn, yytext()); }
     ";"             { return new Symbol(sym.FINCADENA, yyline, yycolumn, yytext()); }
     "+"             { return new Symbol(sym.MAS, yyline, yycolumn, yytext()); }
@@ -71,6 +84,15 @@ COMENTARIO_MULTI = "/*" [^*]* "*"+ ([^*/][^*]* "*"+)* "/"
 
     // 5. Cambio al estado de captura de cadenas de texto
     "\""            { yybegin(CADENA); cadena=""; }
+
+    // 6. REGLA COMODÍN (FALLBACK) - Al puro final para capturar errores sin romper las otras reglas
+    [^]  { 
+           String desc = "Carácter inválido '" + yytext() + "'";
+           System.err.println("Error léxico: " + desc + " en línea " + yyline + ", columna " + yycolumn);
+           
+           // Se inserta el objeto con el orden exacto de parámetros
+           errors.add(new com.olc1.reports.GoliteError("Léxico", desc, yyline, yycolumn));
+         }
 }
 
 <CADENA> {

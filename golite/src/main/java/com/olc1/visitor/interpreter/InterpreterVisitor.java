@@ -144,4 +144,66 @@ public class InterpreterVisitor implements Visitor<ValueWrapper> {
         }
         return defaultVoid;
     }
+
+    @Override
+    public ValueWrapper visit(com.olc1.ast.exp.RelationalOp.Context ctx) {
+        ValueWrapper left  = Visit(ctx.left());
+        ValueWrapper right = Visit(ctx.right());
+
+        // Normalizamos valores numéricos por si vienen mezclados enteros y decimales
+        double lVal = (left instanceof IntValue cv) ? cv.value() : (left instanceof DecimalValue cv) ? cv.value() : 0;
+        double rVal = (right instanceof IntValue cv) ? cv.value() : (right instanceof DecimalValue cv) ? cv.value() : 0;
+        
+        boolean res = false;
+        switch (ctx.operator()) {
+            case "==" -> {
+                if (left instanceof StringValue lStr && right instanceof StringValue rStr) {
+                    res = lStr.value().equals(rStr.value());
+                } else if (left instanceof BoolValue lBool && right instanceof BoolValue rBool) {
+                    res = lBool.value() == rBool.value();
+                } else {
+                    res = lVal == rVal;
+                }
+            }
+            case "!=" -> {
+                if (left instanceof StringValue lStr && right instanceof StringValue rStr) {
+                    res = !lStr.value().equals(rStr.value());
+                } else if (left instanceof BoolValue lBool && right instanceof BoolValue rBool) {
+                    res = lBool.value() != rBool.value();
+                } else {
+                    res = lVal != rVal;
+                }
+            }
+            case "<"  -> res = lVal < rVal;
+            case ">"  -> res = lVal > rVal;
+            case "<=" -> res = lVal <= rVal;
+            case ">=" -> res = lVal >= rVal;
+            default -> throw new RuntimeException("Operador relacional desconocido: " + ctx.operator());
+        }
+        return new BoolValue(res, ctx.line(), ctx.column());
+    }
+
+    @Override
+    public ValueWrapper visit(com.olc1.ast.exp.LogicalOp.Context ctx) {
+        ValueWrapper left = Visit(ctx.left());
+        
+        // Manejo del operador unario NOT (!)
+        if (ctx.operator().equals("!")) {
+            if (left instanceof BoolValue b) {
+                return new BoolValue(!b.value(), ctx.line(), ctx.column());
+            }
+            throw new RuntimeException("El operador '!' requiere un valor booleano");
+        }
+        
+        ValueWrapper right = Visit(ctx.right());
+        if (left instanceof BoolValue l && right instanceof BoolValue r) {
+            boolean res = switch (ctx.operator()) {
+                case "&&" -> l.value() && r.value();
+                case "||" -> l.value() || r.value();
+                default -> throw new RuntimeException("Operador logico desconocido: " + ctx.operator());
+            };
+            return new BoolValue(res, ctx.line(), ctx.column());
+        }
+        throw new RuntimeException("Los operadores '&&' y '||' requieren valores booleanos");
+    }
 }
