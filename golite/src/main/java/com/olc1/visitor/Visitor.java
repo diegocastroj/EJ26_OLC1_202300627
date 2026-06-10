@@ -24,4 +24,5 @@ public interface Visitor<T> {
     T visit(com.olc1.ast.stm.ForNode.Context ctx);
     T visit(com.olc1.ast.stm.BreakNode node);
     T visit(com.olc1.ast.stm.ContinueNode node);
+    T visit(com.olc1.ast.exp.StrConvNode.Context ctx);
 }

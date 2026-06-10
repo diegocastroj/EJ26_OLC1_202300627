@@ -45,6 +45,8 @@ COMENTARIO_MULTI = "/*" [^*]* "*"+ ([^*/][^*]* "*"+)* "/"
 
 <YYINITIAL> {
     // 1. Palabras reservadas lógicas de GoLite (en minúsculas)
+    "strconv.Atoi"       { return new Symbol(sym.ATOI, yyline, yycolumn, yytext()); }
+    "strconv.ParseFloat" { return new Symbol(sym.PARSEFLOAT, yyline, yycolumn, yytext()); }
     "for"           { return new Symbol(sym.FOR, yyline, yycolumn, yytext()); }
     "if"            { return new Symbol(sym.IF, yyline, yycolumn, yytext()); }
     "else"          { return new Symbol(sym.ELSE, yyline, yycolumn, yytext()); }

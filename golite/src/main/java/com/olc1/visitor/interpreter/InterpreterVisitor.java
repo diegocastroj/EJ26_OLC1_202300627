@@ -8,8 +8,6 @@ import com.olc1.ast.stm.*;
 import com.olc1.ast.exp.*;
 import com.olc1.visitor.Visitor;
 import com.olc1.visitor.interpreter.values.*;
-import com.olc1.ast.stm.BreakException;
-import com.olc1.ast.stm.ContinueException;
 
 
 public class InterpreterVisitor implements Visitor<ValueWrapper> {
@@ -255,5 +253,30 @@ public class InterpreterVisitor implements Visitor<ValueWrapper> {
     @Override
     public ValueWrapper visit(com.olc1.ast.stm.ContinueNode node) {
         throw new ContinueException(); // Lanza la señal de salto
+    }
+
+    @Override
+    public ValueWrapper visit(com.olc1.ast.exp.StrConvNode.Context ctx) {
+        ValueWrapper val = Visit(ctx.expression());
+        
+        if (!(val instanceof StringValue str)) {
+            throw new RuntimeException("Error semantico: Las funciones de strconv requieren una cadena de texto.");
+        }
+        
+        String cleanText = str.value();
+        try {
+            if (ctx.type().equals("atoi")) {
+                // Validación del enunciado: No redondea decimales, si viene un '.' lanza error directo
+                if (cleanText.contains(".")) {
+                    throw new RuntimeException("Error semantico: strconv.Atoi no puede procesar formato decimal: " + cleanText);
+                }
+                return new IntValue(Integer.parseInt(cleanText), ctx.line(), ctx.column());
+            } else {
+                // ParseFloat acepta tanto cadenas enteras como flotantes de forma transparente
+                return new DecimalValue(Double.parseDouble(cleanText), ctx.line(), ctx.column());
+            }
+        } catch (NumberFormatException e) {
+            throw new RuntimeException("Error semantico: No se pudo convertir la cadena '" + cleanText + "' a un tipo numerico valido.");
+        }
     }
 }
