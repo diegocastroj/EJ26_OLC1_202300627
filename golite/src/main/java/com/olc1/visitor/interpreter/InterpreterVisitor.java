@@ -138,10 +138,15 @@ public class InterpreterVisitor implements Visitor<ValueWrapper> {
 
     @Override
     public ValueWrapper visit(IfNode.Context ctx) {
-        ValueWrapper cond = Visit(ctx.condition);
+        ValueWrapper cond = Visit(ctx.condition());
+        
         if (cond instanceof BoolValue b && b.value()) {
-            Visit(ctx.body);
+            Visit(ctx.body());
+        } else if (ctx.elseBody() != null) {
+            // Si la condición fue falsa y existe un bloque else, lo ejecutamos
+            Visit(ctx.elseBody());
         }
+        
         return defaultVoid;
     }
 

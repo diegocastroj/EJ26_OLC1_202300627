@@ -44,6 +44,7 @@ terminal TRUE, FALSE;
 terminal ASIGNAR;
 terminal IGUAL, DIFERENTE, MENOR, MAYOR, MENORIGUAL, MAYORIGUAL;
 terminal AND, OR, NOT;
+terminal IF, ELSE, LLAVE1, LLAVE2;
 
 nonterminal ASTNode INICIO;
 nonterminal ASTNode INSTRUCCIONES, INSTRUCCION;
@@ -64,25 +65,34 @@ INICIO ::= INSTRUCCIONES:ins    {: RESULT = ins; :}
 
 INSTRUCCIONES ::= INSTRUCCIONES:list INSTRUCCION:inst 
                   {: 
-                     // Como la lista es privada, llamamos al método público add() del nodo.
-                     // Nota: Si te da error "cannot find symbol", cámbialo por: list.addStatement(inst);
-                     ((com.olc1.ast.stm.Statments)list).add(inst); 
-                     RESULT = list; 
+                      // Como la lista es privada, llamamos al método público add() del nodo.
+                      ((com.olc1.ast.stm.Statments)list).add(inst); 
+                      RESULT = list; 
                   :}
                 | INSTRUCCION:inst                    
                   {: 
-                     // El constructor te exige pasarle la primera instrucción obligatoriamente
-                     RESULT = new com.olc1.ast.stm.Statments(inst);
+                      // El constructor te exige pasarle la primera instrucción obligatoriamente
+                      RESULT = new com.olc1.ast.stm.Statments(inst);
                   :}
 ;
 
 INSTRUCCION ::= IMPRIMIR PAR1 EXPRESION:e PAR2 FINCADENA  {: RESULT = new Imprimir(e); :}
               | ID:id ASIGNAR EXPRESION:e FINCADENA       
                   {: 
-                     // Pasamos el ID, la expresión, la línea (idleft) y la columna (idright)
-                     RESULT = new Assign(id, e, idleft, idright); 
+                      // Pasamos el ID, la expresión, la línea (idleft) y la columna (idright)
+                      RESULT = new Assign(id, e, idleft, idright); 
+                  :}
+              | IF EXPRESION:cond LLAVE1 INSTRUCCIONES:cuerpo LLAVE2
+                  {: RESULT = new IfNode(cond, cuerpo, null); :}
+              | IF EXPRESION:cond LLAVE1 INSTRUCCIONES:cuerpo LLAVE2 ELSE LLAVE1 INSTRUCCIONES:cuerpoElse LLAVE2
+                  {: RESULT = new IfNode(cond, cuerpo, cuerpoElse); :}
+              | IF EXPRESION:cond LLAVE1 INSTRUCCIONES:cuerpo LLAVE2 ELSE INSTRUCCION:instElse
+                  {: 
+                      // Esto nos permite encadenar "else if" de forma limpia e indefinida
+                      RESULT = new IfNode(cond, cuerpo, instElse); 
                   :}
 ;
+
 EXPRESION ::= MENOS EXPRESION:a               {: RESULT = new Negate(a); :} %prec UMENOS
             | EXPRESION:a MAS EXPRESION:b     {: RESULT = new Add(a, b); :}
             | EXPRESION:a MENOS EXPRESION:b   {: RESULT = new Sub(a, b); :}

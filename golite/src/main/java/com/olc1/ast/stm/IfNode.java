@@ -4,26 +4,18 @@ import com.olc1.ast.ASTNode;
 import com.olc1.visitor.Visitor;
 
 public class IfNode implements ASTNode {
-    private final ASTNode condition;
-    private final ASTNode body;
+    public final Context ctx;
 
-    public IfNode(ASTNode condition, ASTNode body) {
-        this.condition = condition;
-        this.body = body;
-    }
-
-    public static class Context {
-        public final ASTNode condition;
-        public final ASTNode body;
-
-        public Context(IfNode node) {
-            this.condition = node.condition;
-            this.body = node.body;
-        }
+    // Constructor para If con Else
+    public IfNode(ASTNode condition, ASTNode body, ASTNode elseBody) {
+        this.ctx = new Context(condition, body, elseBody);
     }
 
     @Override
     public <T> T accept(Visitor<T> visitor) {
-        return visitor.visit(new Context(this));
+        return visitor.visit(this.ctx);
     }
+
+    // Expandimos el Record para incluir el bloque else
+    public static record Context(ASTNode condition, ASTNode body, ASTNode elseBody) {}
 }
