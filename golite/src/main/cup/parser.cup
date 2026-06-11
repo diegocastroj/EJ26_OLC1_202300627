@@ -118,6 +118,11 @@ INSTRUCCION ::= IMPRIMIR PAR1 EXPRESION:e PAR2 FINCADENA  {: RESULT = new Imprim
                       ASTNode resta = new Sub(new VarRef(id, idleft, idright), e);
                       RESULT = new Assign(id, resta, idleft, idright); 
                   :}
+
+              | error FINCADENA
+                  {: 
+                      RESULT = new com.olc1.ast.stm.BreakNode(); // Solo para no dejar el nodo vacío, realmente no se ejecutará
+                  :}
 ;
 
 EXPRESION ::= MENOS EXPRESION:a               {: RESULT = new Negate(a); :} %prec UMENOS
