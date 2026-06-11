@@ -8,6 +8,7 @@ c:\Users\diego\Documents\Repositorios 2026\EJ26_OLC1_202300627\golite\src\main\j
 c:\Users\diego\Documents\Repositorios 2026\EJ26_OLC1_202300627\golite\src\main\java\com\olc1\ast\exp\Mod.java
 c:\Users\diego\Documents\Repositorios 2026\EJ26_OLC1_202300627\golite\src\main\java\com\olc1\ast\exp\Mul.java
 c:\Users\diego\Documents\Repositorios 2026\EJ26_OLC1_202300627\golite\src\main\java\com\olc1\ast\exp\Negate.java
+c:\Users\diego\Documents\Repositorios 2026\EJ26_OLC1_202300627\golite\src\main\java\com\olc1\ast\exp\NullLiteral.java
 c:\Users\diego\Documents\Repositorios 2026\EJ26_OLC1_202300627\golite\src\main\java\com\olc1\ast\exp\Paren.java
 c:\Users\diego\Documents\Repositorios 2026\EJ26_OLC1_202300627\golite\src\main\java\com\olc1\ast\exp\ReflectNode.java
 c:\Users\diego\Documents\Repositorios 2026\EJ26_OLC1_202300627\golite\src\main\java\com\olc1\ast\exp\RelationalOp.java
@@ -34,6 +35,7 @@ c:\Users\diego\Documents\Repositorios 2026\EJ26_OLC1_202300627\golite\src\main\j
 c:\Users\diego\Documents\Repositorios 2026\EJ26_OLC1_202300627\golite\src\main\java\com\olc1\visitor\interpreter\values\BoolValue.java
 c:\Users\diego\Documents\Repositorios 2026\EJ26_OLC1_202300627\golite\src\main\java\com\olc1\visitor\interpreter\values\DecimalValue.java
 c:\Users\diego\Documents\Repositorios 2026\EJ26_OLC1_202300627\golite\src\main\java\com\olc1\visitor\interpreter\values\IntValue.java
+c:\Users\diego\Documents\Repositorios 2026\EJ26_OLC1_202300627\golite\src\main\java\com\olc1\visitor\interpreter\values\NullValue.java
 c:\Users\diego\Documents\Repositorios 2026\EJ26_OLC1_202300627\golite\src\main\java\com\olc1\visitor\interpreter\values\StringValue.java
 c:\Users\diego\Documents\Repositorios 2026\EJ26_OLC1_202300627\golite\src\main\java\com\olc1\visitor\interpreter\values\ValueWrapper.java
 c:\Users\diego\Documents\Repositorios 2026\EJ26_OLC1_202300627\golite\src\main\java\com\olc1\visitor\interpreter\values\VoidValue.java

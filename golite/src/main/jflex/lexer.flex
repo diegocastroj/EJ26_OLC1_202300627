@@ -45,6 +45,7 @@ COMENTARIO_MULTI = "/*" [^*]* "*"+ ([^*/][^*]* "*"+)* "/"
 
 <YYINITIAL> {
     // 1. Palabras reservadas lógicas de GoLite (en minúsculas)
+    "null"          { return new Symbol(sym.NULL, yyline, yycolumn, yytext()); }
     "strconv.Atoi"       { return new Symbol(sym.ATOI, yyline, yycolumn, yytext()); }
     "strconv.ParseFloat" { return new Symbol(sym.PARSEFLOAT, yyline, yycolumn, yytext()); }
     "for"           { return new Symbol(sym.FOR, yyline, yycolumn, yytext()); }
@@ -88,6 +89,8 @@ COMENTARIO_MULTI = "/*" [^*]* "*"+ ([^*/][^*]* "*"+)* "/"
     "{"             { return new Symbol(sym.LLAVE1, yyline, yycolumn, yytext()); }
     "}"             { return new Symbol(sym.LLAVE2, yyline, yycolumn, yytext()); }
     "%"             { return new Symbol(sym.MOD, yyline, yycolumn, yytext()); }
+    "+="            { return new Symbol(sym.MAS_IGUAL, yyline, yycolumn, yytext()); }
+    "-="            { return new Symbol(sym.MENOS_IGUAL, yyline, yycolumn, yytext()); }
 
     // 3. Literales e Identificadores (¡El orden importa! Primero expresiones numéricas, luego IDs)
     {DECIMAL}       { return new Symbol(sym.DECIMAL, yyline, yycolumn, yytext()); }

@@ -192,6 +192,8 @@ public class InterpreterVisitor implements Visitor<ValueWrapper> {
                     res = lStr.value().equals(rStr.value());
                 } else if (left instanceof BoolValue lBool && right instanceof BoolValue rBool) {
                     res = lBool.value() == rBool.value();
+                } else if (left instanceof NullValue || right instanceof NullValue) { // <- Parche de nulidad
+                    res = (left instanceof NullValue && right instanceof NullValue);
                 } else {
                     res = lVal == rVal;
                 }
@@ -201,6 +203,8 @@ public class InterpreterVisitor implements Visitor<ValueWrapper> {
                     res = !lStr.value().equals(rStr.value());
                 } else if (left instanceof BoolValue lBool && right instanceof BoolValue rBool) {
                     res = lBool.value() != rBool.value();
+                } else if (left instanceof NullValue || right instanceof NullValue) { // <- Parche de nulidad
+                    res = !(left instanceof NullValue && right instanceof NullValue);
                 } else {
                     res = lVal != rVal;
                 }
@@ -298,7 +302,7 @@ public class InterpreterVisitor implements Visitor<ValueWrapper> {
         }
     }
 
-    @Override
+@Override
     public ValueWrapper visit(com.olc1.ast.exp.ReflectNode.Context ctx) {
         ValueWrapper val = Visit(ctx.expression());
         
@@ -311,8 +315,15 @@ public class InterpreterVisitor implements Visitor<ValueWrapper> {
             typeName = "string";
         } else if (val instanceof BoolValue) {
             typeName = "bool";
+        } else if (val instanceof NullValue) { // <- Detecta nulidad
+            typeName = "null";
         }
         
         return new StringValue(typeName, ctx.line(), ctx.column());
+    }
+    
+    @Override
+    public ValueWrapper visit(com.olc1.ast.exp.NullLiteral.Context ctx) {
+        return new NullValue(ctx.line(), ctx.column());
     }
 }

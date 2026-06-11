@@ -27,4 +27,5 @@ public interface Visitor<T> {
     T visit(com.olc1.ast.exp.StrConvNode.Context ctx);
     T visit(com.olc1.ast.exp.ReflectNode.Context ctx);
     T visit(com.olc1.ast.exp.Mod.Context ctx);
+    T visit(com.olc1.ast.exp.NullLiteral.Context ctx);
 }

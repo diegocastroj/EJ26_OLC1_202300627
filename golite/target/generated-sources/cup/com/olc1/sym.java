@@ -29,6 +29,7 @@ public interface sym {
   public static final int OR = 26;
   public static final int DIV = 11;
   public static final int ATOI = 35;
+  public static final int MAS_IGUAL = 39;
   public static final int UMENOS = 14;
   public static final int IF = 28;
   public static final int ID = 5;
@@ -39,12 +40,14 @@ public interface sym {
   public static final int error = 1;
   public static final int CADENA = 2;
   public static final int MENOS = 9;
+  public static final int NULL = 38;
   public static final int MENOR = 21;
   public static final int MOD = 15;
   public static final int BREAK = 33;
   public static final int MAYOR = 22;
   public static final int ELSE = 29;
   public static final int FALSE = 17;
+  public static final int MENOS_IGUAL = 40;
   public static final int MAS = 8;
   public static final String[] terminalNames = new String[] {
   "EOF",
@@ -84,7 +87,10 @@ public interface sym {
   "CONTINUE",
   "ATOI",
   "PARSEFLOAT",
-  "REFLECT"
+  "REFLECT",
+  "NULL",
+  "MAS_IGUAL",
+  "MENOS_IGUAL"
   };
 }
 

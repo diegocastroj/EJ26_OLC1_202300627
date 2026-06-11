@@ -47,13 +47,14 @@ terminal AND, OR, NOT;
 terminal IF, ELSE, LLAVE1, LLAVE2, FOR;
 terminal BREAK, CONTINUE;
 terminal ATOI, PARSEFLOAT;
-terminal REFLECT;
+terminal REFLECT, NULL;
+terminal MAS_IGUAL, MENOS_IGUAL;
 
 nonterminal ASTNode INICIO;
 nonterminal ASTNode INSTRUCCIONES, INSTRUCCION;
 nonterminal ASTNode EXPRESION;
 
-    precedence left OR;
+precedence left OR;
 precedence left AND;
 precedence left IGUAL, DIFERENTE, MENOR, MAYOR, MENORIGUAL, MAYORIGUAL;
 precedence left MAS, MENOS;
@@ -105,6 +106,18 @@ INSTRUCCION ::= IMPRIMIR PAR1 EXPRESION:e PAR2 FINCADENA  {: RESULT = new Imprim
                   :}
               | BREAK FINCADENA       {: RESULT = new com.olc1.ast.stm.BreakNode(); :}
               | CONTINUE FINCADENA    {: RESULT = new com.olc1.ast.stm.ContinueNode(); :}
+
+              // === ASIGNACIONES COMPUESTAS ===
+              | ID:id MAS_IGUAL EXPRESION:e FINCADENA
+                  {: 
+                      ASTNode suma = new Add(new VarRef(id, idleft, idright), e);
+                      RESULT = new Assign(id, suma, idleft, idright); 
+                  :}
+              | ID:id MENOS_IGUAL EXPRESION:e FINCADENA
+                  {: 
+                      ASTNode resta = new Sub(new VarRef(id, idleft, idright), e);
+                      RESULT = new Assign(id, resta, idleft, idright); 
+                  :}
 ;
 
 EXPRESION ::= MENOS EXPRESION:a               {: RESULT = new Negate(a); :} %prec UMENOS
@@ -112,7 +125,7 @@ EXPRESION ::= MENOS EXPRESION:a               {: RESULT = new Negate(a); :} %pre
             | EXPRESION:a MENOS EXPRESION:b   {: RESULT = new Sub(a, b); :}
             | EXPRESION:a MULT EXPRESION:b    {: RESULT = new Mul(a, b); :}
             | EXPRESION:a DIV EXPRESION:b     {: RESULT = new Div(a, b); :}  
-            | EXPRESION:a MOD EXPRESION:b         {: RESULT = new com.olc1.ast.exp.Mod(a, b, aleft, aright); :}
+            | EXPRESION:a MOD EXPRESION:b     {: RESULT = new com.olc1.ast.exp.Mod(a, b, aleft, aright); :}
             | PAR1 EXPRESION:e PAR2           {: RESULT = new Paren(e); :}
             
             // === OPERADORES RELACIONALES ===
@@ -133,8 +146,9 @@ EXPRESION ::= MENOS EXPRESION:a               {: RESULT = new Negate(a); :} %pre
             | DECIMAL:e                       {: RESULT = new Decimal(Double.parseDouble(e), eleft, eright); :}
             | CADENA:e                        {: RESULT = new StringLiteral(e, eleft, eright); :} 
             | TRUE:e                          {: RESULT = new BoolLiteral(true, eleft, eright); :}  
-            | FALSE:e                         {: RESULT = new BoolLiteral(false, eleft, eright); :} 
+            | FALSE:f                         {: RESULT = new BoolLiteral(false, fleft, fright); :} 
             | ID:id                           {: RESULT = new VarRef(id, idleft, idright); :}
+            | NULL:n                          {: RESULT = new com.olc1.ast.exp.NullLiteral(nleft, nright); :}
 
             // === FUNCIONES EMBEBIDAS NUMÉRICAS ===
             | ATOI:a PAR1 EXPRESION:e PAR2          {: RESULT = new com.olc1.ast.exp.StrConvNode("atoi", e, aleft, aright); :}
@@ -143,5 +157,3 @@ EXPRESION ::= MENOS EXPRESION:a               {: RESULT = new Negate(a); :} %pre
             // === FUNCION EMBEBIDA DE TIPO ===
             | REFLECT:r PAR1 EXPRESION:e PAR2       {: RESULT = new com.olc1.ast.exp.ReflectNode(e, rleft, rright); :}
 ;
-
-
