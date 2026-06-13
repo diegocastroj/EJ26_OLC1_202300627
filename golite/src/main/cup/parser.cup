@@ -37,7 +37,8 @@ action code
     String consola = "";
 :}
 
-terminal String CADENA, ENTERO, DECIMAL, ID;
+terminal String CADENA, ENTERO, DECIMAL, ID, RUNE_LITERAL;
+terminal FUNC, MAIN, VAR, T_INT, T_FLOAT64, T_STRING, T_BOOL, T_RUNE;
 terminal FINCADENA, IMPRIMIR;
 terminal MAS, MENOS, MULT, DIV, PAR1, PAR2, UMENOS, MOD;
 terminal TRUE, FALSE;
@@ -49,10 +50,15 @@ terminal BREAK, CONTINUE;
 terminal ATOI, PARSEFLOAT;
 terminal REFLECT, NULL;
 terminal MAS_IGUAL, MENOS_IGUAL;
+terminal DECLARAR_ASIGNAR;
+terminal COMA;
+terminal INCREMENTO, DECREMENTO;
 
 nonterminal ASTNode INICIO;
 nonterminal ASTNode INSTRUCCIONES, INSTRUCCION;
 nonterminal ASTNode EXPRESION;
+nonterminal OPCIONAL_PTCOMA;
+nonterminal java.util.ArrayList<ASTNode> LISTA_EXPRESIONES;
 
 precedence left OR;
 precedence left AND;
@@ -64,8 +70,10 @@ start with INICIO;
 
 // Gramatica
 
-INICIO ::= INSTRUCCIONES:ins    {: RESULT = ins; :}
+INICIO ::= FUNC MAIN PAR1 PAR2 LLAVE1 INSTRUCCIONES:ins LLAVE2 {: RESULT = ins; :}
+         | INSTRUCCIONES:ins                              {: RESULT = ins; :}
 ;
+
 
 INSTRUCCIONES ::= INSTRUCCIONES:list INSTRUCCION:inst 
                   {: 
@@ -80,40 +88,120 @@ INSTRUCCIONES ::= INSTRUCCIONES:list INSTRUCCION:inst
                   :}
 ;
 
-INSTRUCCION ::= IMPRIMIR PAR1 EXPRESION:e PAR2 FINCADENA  {: RESULT = new Imprimir(e); :}
-              | ID:id ASIGNAR EXPRESION:e FINCADENA       
-                  {: 
-                      // Pasamos el ID, la expresión, la línea (idleft) y la columna (idright)
-                      RESULT = new Assign(id, e, idleft, idright); 
-                  :}
+OPCIONAL_PTCOMA ::= FINCADENA
+                  | /* vacio */
+                  ;
+
+// === REGLA RECURSIVA PARA LISTAS SEPARADAS POR COMA ===
+LISTA_EXPRESIONES ::= LISTA_EXPRESIONES:list COMA EXPRESION:e
+                    {: 
+                        list.add(e); 
+                        RESULT = list; 
+                    :}
+                  | EXPRESION:e
+                    {: 
+                        java.util.ArrayList<ASTNode> list = new java.util.ArrayList<>(); 
+                        list.add(e); 
+                        RESULT = list; 
+                    :}
+;
+
+INSTRUCCION ::= IMPRIMIR PAR1 LISTA_EXPRESIONES:list PAR2 OPCIONAL_PTCOMA
+                  {: RESULT = new Imprimir(list); :}
+              
+              | IMPRIMIR PAR1 PAR2 OPCIONAL_PTCOMA
+                  {: RESULT = new Imprimir(new java.util.ArrayList<>()); :}
+              
+              | ID:id ASIGNAR EXPRESION:e OPCIONAL_PTCOMA       
+                  {: RESULT = new Assign(id, e, idleft, idright);  :}
+              
+              // === NUEVA REGLA: DECLARACIÓN CORTA (:=) ===
+              | ID:id DECLARAR_ASIGNAR EXPRESION:e OPCIONAL_PTCOMA       
+                  {: RESULT = new com.olc1.ast.stm.ShortDeclaration(id, e, idleft, idright); :}
+
+              // === SENTENCIAS IF (CON DISMINUCIÓN DE AMBIGÜEDAD) ===
               | IF EXPRESION:cond LLAVE1 INSTRUCCIONES:cuerpo LLAVE2
                   {: RESULT = new IfNode(cond, cuerpo, null); :}
-              | IF EXPRESION:cond LLAVE1 INSTRUCCIONES:cuerpo LLAVE2 ELSE LLAVE1 INSTRUCCIONES:cuerpoElse LLAVE2
-                  {: RESULT = new IfNode(cond, cuerpo, cuerpoElse); :}
+              
               | IF EXPRESION:cond LLAVE1 INSTRUCCIONES:cuerpo LLAVE2 ELSE INSTRUCCION:instElse
                   {: 
-                      // Esto nos permite encadenar "else if" de forma limpia e indefinida
+                      // Esta regla general absorbe tanto un "else if" como un "else { ... }"
+                      // debido a que los bloques entre llaves ya se consideran una INSTRUCCION.
                       RESULT = new IfNode(cond, cuerpo, instElse); 
                   :}
+              // === 1. FOR ESTILO WHILE (for n <= 15) ===
               | FOR EXPRESION:cond LLAVE1 INSTRUCCIONES:cuerpo LLAVE2
                   {: RESULT = new com.olc1.ast.stm.ForNode(null, cond, null, cuerpo); :}
-              
+
+              // === 2. FOR COMPLETO CON ASIGNACIÓN NORMAL  ===
               | FOR ID:idInit ASIGNAR EXPRESION:eInit FINCADENA EXPRESION:cond FINCADENA ID:idInc ASIGNAR EXPRESION:eInc LLAVE1 INSTRUCCIONES:cuerpo LLAVE2
                   {: 
-                     ASTNode initNode = new Assign(idInit, eInit, idInitleft, idInitright);
-                     ASTNode incNode  = new Assign(idInc, eInc, idIncleft, idIncright);
-                     RESULT = new com.olc1.ast.stm.ForNode(initNode, cond, incNode, cuerpo); 
+                      ASTNode initNode = new Assign(idInit, eInit, idInitleft, idInitright);
+                      ASTNode incNode  = new Assign(idInc, eInc, idIncleft, idIncright);
+                      RESULT = new com.olc1.ast.stm.ForNode(initNode, cond, incNode, cuerpo); 
                   :}
-              | BREAK FINCADENA       {: RESULT = new com.olc1.ast.stm.BreakNode(); :}
-              | CONTINUE FINCADENA    {: RESULT = new com.olc1.ast.stm.ContinueNode(); :}
+
+              // === 3. FOR COMPLETO CON DECLARACIÓN CORTA  ===
+              | FOR ID:idInit DECLARAR_ASIGNAR EXPRESION:eInit FINCADENA EXPRESION:cond FINCADENA ID:idInc ASIGNAR EXPRESION:eInc LLAVE1 INSTRUCCIONES:cuerpo LLAVE2
+                  {: 
+                      ASTNode nodoInit = new com.olc1.ast.stm.ShortDeclaration(idInit, eInit, idInitleft, idInitright);
+                      ASTNode nodoInc  = new Assign(idInc, eInc, idIncleft, idIncright);
+                      RESULT = new com.olc1.ast.stm.ForNode(nodoInit, cond, nodoInc, cuerpo); 
+                  :}
+
+              // === 4. FOR CON DECLARACIÓN CORTA E INCREMENTO SINTÁCTICO  ===
+              | FOR ID:idInit DECLARAR_ASIGNAR EXPRESION:eInit FINCADENA EXPRESION:cond FINCADENA ID:idInc INCREMENTO LLAVE1 INSTRUCCIONES:cuerpo LLAVE2
+                  {: 
+                      ASTNode nodoInit = new com.olc1.ast.stm.ShortDeclaration(idInit, eInit, idInitleft, idInitright);
+                      ASTNode nodoInc  = new Assign(idInc, new Add(new VarRef(idInc, idIncleft, idIncright), new Integers(1, idIncleft, idIncright)), idIncleft, idIncright);
+                      RESULT = new com.olc1.ast.stm.ForNode(nodoInit, cond, nodoInc, cuerpo); 
+                  :}
+                  
+              // === 5. FOR CON ASIGNACIÓN NORMAL E INCREMENTO SINTÁCTICO  ===
+              | FOR ID:idInit ASIGNAR EXPRESION:eInit FINCADENA EXPRESION:cond FINCADENA ID:idInc INCREMENTO LLAVE1 INSTRUCCIONES:cuerpo LLAVE2
+                  {: 
+                      ASTNode initNode = new Assign(idInit, eInit, idInitleft, idInitright);
+                      ASTNode incNode  = new Assign(idInc, new Add(new VarRef(idInc, idIncleft, idIncright), new Integers(1, idIncleft, idIncright)), idIncleft, idIncright);
+                      RESULT = new com.olc1.ast.stm.ForNode(initNode, cond, incNode, cuerpo); 
+                  :}
+              // === 6. FOR CON DECLARACIÓN CORTA Y ASIGNACIÓN COMPUESTA (+= y -=) ===
+              | FOR ID:idInit DECLARAR_ASIGNAR EXPRESION:eInit FINCADENA EXPRESION:cond FINCADENA ID:idInc MAS_IGUAL EXPRESION:eInc LLAVE1 INSTRUCCIONES:cuerpo LLAVE2
+                  {: 
+                      ASTNode nodoInit = new com.olc1.ast.stm.ShortDeclaration(idInit, eInit, idInitleft, idInitright);
+                      ASTNode nodoInc  = new Assign(idInc, new Add(new VarRef(idInc, idIncleft, idIncright), eInc), idIncleft, idIncright);
+                      RESULT = new com.olc1.ast.stm.ForNode(nodoInit, cond, nodoInc, cuerpo); 
+                  :}
+              | FOR ID:idInit DECLARAR_ASIGNAR EXPRESION:eInit FINCADENA EXPRESION:cond FINCADENA ID:idInc MENOS_IGUAL EXPRESION:eInc LLAVE1 INSTRUCCIONES:cuerpo LLAVE2
+                  {: 
+                      ASTNode nodoInit = new com.olc1.ast.stm.ShortDeclaration(idInit, eInit, idInitleft, idInitright);
+                      ASTNode nodoInc  = new Assign(idInc, new Sub(new VarRef(idInc, idIncleft, idIncright), eInc), idIncleft, idIncright);
+                      RESULT = new com.olc1.ast.stm.ForNode(nodoInit, cond, nodoInc, cuerpo); 
+                  :}
+
+              // === 7. FOR CON ASIGNACIÓN NORMAL Y ASIGNACIÓN COMPUESTA (+= y -=) ===
+              | FOR ID:idInit ASIGNAR EXPRESION:eInit FINCADENA EXPRESION:cond FINCADENA ID:idInc MAS_IGUAL EXPRESION:eInc LLAVE1 INSTRUCCIONES:cuerpo LLAVE2
+                  {: 
+                      ASTNode initNode = new Assign(idInit, eInit, idInitleft, idInitright);
+                      ASTNode incNode  = new Assign(idInc, new Add(new VarRef(idInc, idIncleft, idIncright), eInc), idIncleft, idIncright);
+                      RESULT = new com.olc1.ast.stm.ForNode(initNode, cond, incNode, cuerpo); 
+                  :}
+              | FOR ID:idInit ASIGNAR EXPRESION:eInit FINCADENA EXPRESION:cond FINCADENA ID:idInc MENOS_IGUAL EXPRESION:eInc LLAVE1 INSTRUCCIONES:cuerpo LLAVE2
+                  {: 
+                      ASTNode initNode = new Assign(idInit, eInit, idInitleft, idInitright);
+                      ASTNode incNode  = new Assign(idInc, new Sub(new VarRef(idInc, idIncleft, idIncright), eInc), idIncleft, idIncright);
+                      RESULT = new com.olc1.ast.stm.ForNode(initNode, cond, incNode, cuerpo); 
+                  :}
+
+              | BREAK OPCIONAL_PTCOMA       {: RESULT = new com.olc1.ast.stm.BreakNode(); :}
+              | CONTINUE OPCIONAL_PTCOMA    {: RESULT = new com.olc1.ast.stm.ContinueNode(); :}
 
               // === ASIGNACIONES COMPUESTAS ===
-              | ID:id MAS_IGUAL EXPRESION:e FINCADENA
+              | ID:id MAS_IGUAL EXPRESION:e OPCIONAL_PTCOMA
                   {: 
                       ASTNode suma = new Add(new VarRef(id, idleft, idright), e);
                       RESULT = new Assign(id, suma, idleft, idright); 
                   :}
-              | ID:id MENOS_IGUAL EXPRESION:e FINCADENA
+              | ID:id MENOS_IGUAL EXPRESION:e OPCIONAL_PTCOMA
                   {: 
                       ASTNode resta = new Sub(new VarRef(id, idleft, idright), e);
                       RESULT = new Assign(id, resta, idleft, idright); 
@@ -122,6 +210,47 @@ INSTRUCCION ::= IMPRIMIR PAR1 EXPRESION:e PAR2 FINCADENA  {: RESULT = new Imprim
               | error FINCADENA
                   {: 
                       RESULT = new com.olc1.ast.stm.BreakNode(); // Solo para no dejar el nodo vacío, realmente no se ejecutará
+                  :}
+                  
+              // === CÁPSULA DE ÁMBITO LOCAL / BLOQUE  ===
+              | LLAVE1 INSTRUCCIONES:ins LLAVE2
+                  {: RESULT = new com.olc1.ast.stm.BlockNode(ins); :}
+
+
+              // === DECLARACIONES EXPLÍCITAS (EVITANDO CONFLICTOS DE TIPOS EN CUP) ===
+              | VAR ID:id T_INT ASIGNAR EXPRESION:e OPCIONAL_PTCOMA
+                  {: RESULT = new com.olc1.ast.stm.VarDeclaration(id, "int", e, idleft, idright); :}
+              | VAR ID:id T_FLOAT64 ASIGNAR EXPRESION:e OPCIONAL_PTCOMA
+                  {: RESULT = new com.olc1.ast.stm.VarDeclaration(id, "float64", e, idleft, idright); :}
+              | VAR ID:id T_STRING ASIGNAR EXPRESION:e OPCIONAL_PTCOMA
+                  {: RESULT = new com.olc1.ast.stm.VarDeclaration(id, "string", e, idleft, idright); :}
+              | VAR ID:id T_BOOL ASIGNAR EXPRESION:e OPCIONAL_PTCOMA
+                  {: RESULT = new com.olc1.ast.stm.VarDeclaration(id, "bool", e, idleft, idright); :}
+              | VAR ID:id T_RUNE ASIGNAR EXPRESION:e OPCIONAL_PTCOMA
+                  {: RESULT = new com.olc1.ast.stm.VarDeclaration(id, "rune", e, idleft, idright); :}
+              
+              | VAR ID:id T_INT OPCIONAL_PTCOMA
+                  {: RESULT = new com.olc1.ast.stm.VarDeclaration(id, "int", null, idleft, idright); :}
+              | VAR ID:id T_FLOAT64 OPCIONAL_PTCOMA
+                  {: RESULT = new com.olc1.ast.stm.VarDeclaration(id, "float64", null, idleft, idright); :}
+              | VAR ID:id T_STRING OPCIONAL_PTCOMA
+                  {: RESULT = new com.olc1.ast.stm.VarDeclaration(id, "string", null, idleft, idright); :}
+              | VAR ID:id T_BOOL OPCIONAL_PTCOMA
+                  {: RESULT = new com.olc1.ast.stm.VarDeclaration(id, "bool", null, idleft, idright); :}
+              | VAR ID:id T_RUNE OPCIONAL_PTCOMA
+                  {: RESULT = new com.olc1.ast.stm.VarDeclaration(id, "rune", null, idleft, idright); :}
+
+
+              // === INCREMENTO Y DECREMENTO DIRECTO ===
+              | ID:id INCREMENTO OPCIONAL_PTCOMA
+                  {: 
+                      ASTNode suma = new Add(new VarRef(id, idleft, idright), new Integers(1, idleft, idright));
+                      RESULT = new Assign(id, suma, idleft, idright); 
+                  :}
+              | ID:id DECREMENTO OPCIONAL_PTCOMA
+                  {: 
+                      ASTNode resta = new Sub(new VarRef(id, idleft, idright), new Integers(1, idleft, idright));
+                      RESULT = new Assign(id, resta, idleft, idright); 
                   :}
 ;
 
@@ -154,7 +283,8 @@ EXPRESION ::= MENOS EXPRESION:a               {: RESULT = new Negate(a); :} %pre
             | FALSE:f                         {: RESULT = new BoolLiteral(false, fleft, fright); :} 
             | ID:id                           {: RESULT = new VarRef(id, idleft, idright); :}
             | NULL:n                          {: RESULT = new com.olc1.ast.exp.NullLiteral(nleft, nright); :}
-
+            | RUNE_LITERAL:r                   {: RESULT = new com.olc1.ast.exp.RuneLiteral(r, rleft, rright); :}
+            
             // === FUNCIONES EMBEBIDAS NUMÉRICAS ===
             | ATOI:a PAR1 EXPRESION:e PAR2          {: RESULT = new com.olc1.ast.exp.StrConvNode("atoi", e, aleft, aright); :}
             | PARSEFLOAT:p PAR1 EXPRESION:e PAR2    {: RESULT = new com.olc1.ast.exp.StrConvNode("parsefloat", e, pleft, pright); :}

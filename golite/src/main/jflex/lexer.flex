@@ -61,6 +61,19 @@ COMENTARIO_MULTI = "/*" [^*]* "*"+ ([^*/][^*]* "*"+)* "/"
     "reflect.TypeOf"     { return new Symbol(sym.REFLECT, yyline, yycolumn, yytext()); }
     "strconv.Atoi"       { return new Symbol(sym.ATOI, yyline, yycolumn, yytext()); }
     "strconv.ParseFloat" { return new Symbol(sym.PARSEFLOAT, yyline, yycolumn, yytext()); }
+    "func"          { return new Symbol(sym.FUNC, yyline, yycolumn, yytext()); }
+    "main"          { return new Symbol(sym.MAIN, yyline, yycolumn, yytext()); }
+    "var"           { return new Symbol(sym.VAR, yyline, yycolumn, yytext()); }
+
+    // Tipos de datos estáticos
+    "int"           { return new Symbol(sym.T_INT, yyline, yycolumn, yytext()); }
+    "float64"       { return new Symbol(sym.T_FLOAT64, yyline, yycolumn, yytext()); }
+    "string"        { return new Symbol(sym.T_STRING, yyline, yycolumn, yytext()); }
+    "bool"          { return new Symbol(sym.T_BOOL, yyline, yycolumn, yytext()); }
+    "rune"          { return new Symbol(sym.T_RUNE, yyline, yycolumn, yytext()); }
+    
+    // Literal de Carácter / Rune (ej: 'A')
+    "'" [^'\\] "'"  { return new Symbol(sym.RUNE_LITERAL, yyline, yycolumn, yytext()); }
     
     
     // Mapeamos provisionalmente la función nativa de impresión
@@ -78,6 +91,7 @@ COMENTARIO_MULTI = "/*" [^*]* "*"+ ([^*/][^*]* "*"+)* "/"
     "||"            { return new Symbol(sym.OR, yyline, yycolumn, yytext()); }
     "!"             { return new Symbol(sym.NOT, yyline, yycolumn, yytext()); }
     
+    ":="            { return new Symbol(sym.DECLARAR_ASIGNAR, yyline, yycolumn, yytext()); }
     "="             { return new Symbol(sym.ASIGNAR, yyline, yycolumn, yytext()); }
     ";"             { return new Symbol(sym.FINCADENA, yyline, yycolumn, yytext()); }
     "+"             { return new Symbol(sym.MAS, yyline, yycolumn, yytext()); }
@@ -91,6 +105,9 @@ COMENTARIO_MULTI = "/*" [^*]* "*"+ ([^*/][^*]* "*"+)* "/"
     "%"             { return new Symbol(sym.MOD, yyline, yycolumn, yytext()); }
     "+="            { return new Symbol(sym.MAS_IGUAL, yyline, yycolumn, yytext()); }
     "-="            { return new Symbol(sym.MENOS_IGUAL, yyline, yycolumn, yytext()); }
+    ","             { return new Symbol(sym.COMA, yyline, yycolumn, yytext()); }
+    "++"            { return new Symbol(sym.INCREMENTO, yyline, yycolumn, yytext()); }
+    "--"            { return new Symbol(sym.DECREMENTO, yyline, yycolumn, yytext()); }
 
     // 3. Literales e Identificadores (¡El orden importa! Primero expresiones numéricas, luego IDs)
     {DECIMAL}       { return new Symbol(sym.DECIMAL, yyline, yycolumn, yytext()); }
