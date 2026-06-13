@@ -1,7 +1,7 @@
 # EJ26_OLC1_202300627
 Organización de Lenguajes y Compiladores 1
 
-# GoLite IDE - Compilador e Intérprete (Fase 1)
+# GoLite IDE - Compilador e Intérprete 
 
 ## 📌 Descripción General
 GoLite IDE es un entorno de desarrollo integrado (IDE) y un intérprete construido en Java para procesar **GoLite**, un subconjunto del lenguaje de programación Go. 
