@@ -1,326 +1,344 @@
-package com.olc1;
+    package com.olc1;
 
-// importaciones necesarias
-import java_cup.runtime.Symbol;
-import com.olc1.ast.ASTNode;
-import com.olc1.ast.exp.*;
-import com.olc1.ast.stm.*;
+    // importaciones necesarias
+    import java_cup.runtime.Symbol;
+    import com.olc1.ast.ASTNode;
+    import com.olc1.ast.exp.*;
+    import com.olc1.ast.stm.*;
 
-/* =====================================================================
-   ---> CAPTURA Y LOG DE ERRORES SINTÁCTICOS (MODO PÁNICO) <---
-===================================================================== */
-parser code
-{:
-    Lexer s;
-    // Lista pública donde se guardarán los errores sintácticos para el reporte HTML
-    public java.util.ArrayList<com.olc1.reports.GoliteError> erroresSintacticos = new java.util.ArrayList<>();
+    /* =====================================================================
+    ---> CAPTURA Y LOG DE ERRORES SINTÁCTICOS (MODO PÁNICO) <---
+    ===================================================================== */
+    parser code
+    {:
+        Lexer s;
+        // Lista pública donde se guardarán los errores sintácticos para el reporte HTML
+        public java.util.ArrayList<com.olc1.reports.GoliteError> erroresSintacticos = new java.util.ArrayList<>();
 
-    parser(Lexer s) {
-        this.s = s;
-    }
+        parser(Lexer s) {
+            this.s = s;
+        }
 
-    // 1. Se ejecuta cada vez que el Modo Pánico encuentra un error y busca recuperarse
-    @Override
-    public void syntax_error(Symbol s) {
-        String lexema = (s.value != null) ? s.value.toString() : "desconocido";
-        int linea = s.left;
-        int columna = s.right;
-        
-        String desc = "No se esperaba el token '" + lexema + "'";
-        System.err.println("Error sintáctico: " + desc + " en línea " + linea + ", columna " + columna);
-        
-        // Evitamos duplicar logs si las coordenadas vienen dañadas
-        if (linea != -1) {
+        // 1. Se ejecuta cada vez que el Modo Pánico encuentra un error y busca recuperarse
+        @Override
+        public void syntax_error(Symbol s) {
+            String lexema = (s.value != null) ? s.value.toString() : "desconocido";
+            int linea = s.left;
+            int columna = s.right;
+            
+            String desc = "No se esperaba el token '" + lexema + "'";
+            System.err.println("Error sintáctico: " + desc + " en línea " + linea + ", columna " + columna);
+            
+            // Evitamos duplicar logs si las coordenadas vienen dañadas
+            if (linea != -1) {
+                erroresSintacticos.add(new com.olc1.reports.GoliteError("Sintáctico", desc, linea, columna));
+            }
+        }
+
+        // 2. Se ejecuta cuando el Modo Pánico falla (cuando encuentra el error fatal)
+        @Override
+        public void unrecovered_syntax_error(Symbol s) throws java.lang.Exception {
+            // Si CUP manda -1 porque el analizador murió en el vacío, 
+            // usamos 0 o la última línea conocida para no mostrar números negativos
+            int linea = (s.left != -1) ? s.left : 1;
+            int columna = (s.right != -1) ? s.right : 1;
+            
+            String desc = "Error sintáctico fatal: No se pudo recuperar el analizador";
+            System.err.println(desc + " en línea " + linea + ", columna " + columna);
+            
             erroresSintacticos.add(new com.olc1.reports.GoliteError("Sintáctico", desc, linea, columna));
         }
-    }
+    :}
+    /* ===================================================================== */
 
-    // 2. Se ejecuta cuando el Modo Pánico falla (cuando encuentra el error fatal)
-    @Override
-    public void unrecovered_syntax_error(Symbol s) throws java.lang.Exception {
-        // Si CUP manda -1 porque el analizador murió en el vacío, 
-        // usamos 0 o la última línea conocida para no mostrar números negativos
-        int linea = (s.left != -1) ? s.left : 1;
-        int columna = (s.right != -1) ? s.right : 1;
-        
-        String desc = "Error sintáctico fatal: No se pudo recuperar el analizador";
-        System.err.println(desc + " en línea " + linea + ", columna " + columna);
-        
-        erroresSintacticos.add(new com.olc1.reports.GoliteError("Sintáctico", desc, linea, columna));
-    }
-:}
-/* ===================================================================== */
+    action code
+    {:
+        String consola = "";
+    :}
 
-action code
-{:
-    String consola = "";
-:}
+    terminal String CADENA, ENTERO, DECIMAL, ID, RUNE_LITERAL;
+    terminal FUNC, MAIN, VAR, T_INT, T_FLOAT64, T_STRING, T_BOOL, T_RUNE;
+    terminal FINCADENA, IMPRIMIR;
+    terminal MAS, MENOS, MULT, DIV, PAR1, PAR2, UMENOS, MOD;
+    terminal TRUE, FALSE;
+    terminal ASIGNAR;
+    terminal IGUAL, DIFERENTE, MENOR, MAYOR, MENORIGUAL, MAYORIGUAL;
+    terminal AND, OR, NOT;
+    terminal IF, ELSE, LLAVE1, LLAVE2, FOR;
+    terminal BREAK, CONTINUE;
+    terminal ATOI, PARSEFLOAT;
+    terminal REFLECT, NULL;
+    terminal MAS_IGUAL, MENOS_IGUAL;
+    terminal DECLARAR_ASIGNAR;
+    terminal COMA;
+    terminal INCREMENTO, DECREMENTO;
+    terminal SWITCH, CASE, DEFAULT, DOS_PUNTOS;
 
-terminal String CADENA, ENTERO, DECIMAL, ID, RUNE_LITERAL;
-terminal FUNC, MAIN, VAR, T_INT, T_FLOAT64, T_STRING, T_BOOL, T_RUNE;
-terminal FINCADENA, IMPRIMIR;
-terminal MAS, MENOS, MULT, DIV, PAR1, PAR2, UMENOS, MOD;
-terminal TRUE, FALSE;
-terminal ASIGNAR;
-terminal IGUAL, DIFERENTE, MENOR, MAYOR, MENORIGUAL, MAYORIGUAL;
-terminal AND, OR, NOT;
-terminal IF, ELSE, LLAVE1, LLAVE2, FOR;
-terminal BREAK, CONTINUE;
-terminal ATOI, PARSEFLOAT;
-terminal REFLECT, NULL;
-terminal MAS_IGUAL, MENOS_IGUAL;
-terminal DECLARAR_ASIGNAR;
-terminal COMA;
-terminal INCREMENTO, DECREMENTO;
+    nonterminal ASTNode INICIO;
+    nonterminal ASTNode INSTRUCCIONES, INSTRUCCION;
+    nonterminal ASTNode EXPRESION;
+    nonterminal OPCIONAL_PTCOMA;
+    nonterminal java.util.ArrayList<ASTNode> LISTA_EXPRESIONES;
+    nonterminal java.util.ArrayList<ASTNode> LISTA_CASES;
 
-nonterminal ASTNode INICIO;
-nonterminal ASTNode INSTRUCCIONES, INSTRUCCION;
-nonterminal ASTNode EXPRESION;
-nonterminal OPCIONAL_PTCOMA;
-nonterminal java.util.ArrayList<ASTNode> LISTA_EXPRESIONES;
+    precedence left OR;
+    precedence left AND;
+    precedence left IGUAL, DIFERENTE, MENOR, MAYOR, MENORIGUAL, MAYORIGUAL;
+    precedence left MAS, MENOS;
+    precedence left MULT, DIV, MOD;
+    precedence right NOT, UMENOS;
+    start with INICIO;
 
-precedence left OR;
-precedence left AND;
-precedence left IGUAL, DIFERENTE, MENOR, MAYOR, MENORIGUAL, MAYORIGUAL;
-precedence left MAS, MENOS;
-precedence left MULT, DIV, MOD;
-precedence right NOT, UMENOS;
-start with INICIO;
+    // Gramatica
 
-// Gramatica
+    INICIO ::= FUNC MAIN PAR1 PAR2 LLAVE1 INSTRUCCIONES:ins LLAVE2 {: RESULT = ins; :}
+            | INSTRUCCIONES:ins                              {: RESULT = ins; :}
+    ;
 
-INICIO ::= FUNC MAIN PAR1 PAR2 LLAVE1 INSTRUCCIONES:ins LLAVE2 {: RESULT = ins; :}
-         | INSTRUCCIONES:ins                              {: RESULT = ins; :}
-;
-
-INSTRUCCIONES ::= INSTRUCCIONES:list INSTRUCCION:inst 
-                  {: 
-                      // Como la lista es privada, llamamos al método público add() del nodo.
-                      ((com.olc1.ast.stm.Statments)list).add(inst); 
-                      RESULT = list; 
-                  :}
-                | INSTRUCCION:inst                    
-                  {: 
-                      // El constructor te exige pasarle la primera instrucción obligatoriamente
-                      RESULT = new com.olc1.ast.stm.Statments(inst);
-                  :}
-;
-
-OPCIONAL_PTCOMA ::= FINCADENA
-                  | /* vacio */
-                  ;
-
-// === REGLA RECURSIVA PARA LISTAS SEPARADAS POR COMA ===
-LISTA_EXPRESIONES ::= LISTA_EXPRESIONES:list COMA EXPRESION:e
+    INSTRUCCIONES ::= INSTRUCCIONES:list INSTRUCCION:inst 
                     {: 
-                        list.add(e); 
+                        // Como la lista es privada, llamamos al método público add() del nodo.
+                        ((com.olc1.ast.stm.Statments)list).add(inst); 
                         RESULT = list; 
                     :}
-                  | EXPRESION:e
+                    | INSTRUCCION:inst                    
                     {: 
-                        java.util.ArrayList<ASTNode> list = new java.util.ArrayList<>(); 
-                        list.add(e); 
-                        RESULT = list; 
+                        // El constructor te exige pasarle la primera instrucción obligatoriamente
+                        RESULT = new com.olc1.ast.stm.Statments(inst);
                     :}
+    ;
+
+    OPCIONAL_PTCOMA ::= FINCADENA
+                    | /* vacio */
+                    ;
+
+    // === REGLA RECURSIVA PARA LISTAS SEPARADAS POR COMA ===
+    LISTA_EXPRESIONES ::= LISTA_EXPRESIONES:list COMA EXPRESION:e
+                        {: 
+                            list.add(e); 
+                            RESULT = list; 
+                        :}
+                    | EXPRESION:e
+                        {: 
+                            java.util.ArrayList<ASTNode> list = new java.util.ArrayList<>(); 
+                            list.add(e); 
+                            RESULT = list; 
+                        :}
+    ;
+
+    
+
+    INSTRUCCION ::= IMPRIMIR PAR1 LISTA_EXPRESIONES:list PAR2 OPCIONAL_PTCOMA
+                    {: RESULT = new Imprimir(list); :}
+
+                | IMPRIMIR PAR1 PAR2 OPCIONAL_PTCOMA
+                    {: RESULT = new Imprimir(new java.util.ArrayList<>()); :}
+                
+                | ID:id ASIGNAR EXPRESION:e OPCIONAL_PTCOMA       
+                    {: RESULT = new Assign(id, e, idleft, idright);  :}
+                
+                // === NUEVA REGLA: DECLARACIÓN CORTA (:=) ===
+                | ID:id DECLARAR_ASIGNAR EXPRESION:e OPCIONAL_PTCOMA       
+                    {: RESULT = new com.olc1.ast.stm.ShortDeclaration(id, e, idleft, idright); :}
+
+                // === SENTENCIAS IF (CON DISMINUCIÓN DE AMBIGÜEDAD) ===
+                | IF EXPRESION:cond LLAVE1 INSTRUCCIONES:cuerpo LLAVE2
+                    {: RESULT = new IfNode(cond, cuerpo, null); :}
+                
+                | IF EXPRESION:cond LLAVE1 INSTRUCCIONES:cuerpo LLAVE2 ELSE INSTRUCCION:instElse
+                    {: 
+                        // Esta regla general absorbe tanto un "else if" como un "else { ... }"
+                        // debido a que los bloques entre llaves ya se consideran una INSTRUCCION.
+                        RESULT = new IfNode(cond, cuerpo, instElse); 
+                    :}
+
+
+                | SWITCH EXPRESION:e LLAVE1 LISTA_CASES:lc LLAVE2 
+                    {: RESULT = new SwitchNode(e, lc); :}
+
+                // === 1. FOR ESTILO WHILE (for n <= 15) ===
+                | FOR EXPRESION:cond LLAVE1 INSTRUCCIONES:cuerpo LLAVE2
+                    {: RESULT = new com.olc1.ast.stm.ForNode(null, cond, null, cuerpo); :}
+
+                // === 2. FOR COMPLETO CON ASIGNACIÓN NORMAL  ===
+                | FOR ID:idInit ASIGNAR EXPRESION:eInit FINCADENA EXPRESION:cond FINCADENA ID:idInc ASIGNAR EXPRESION:eInc LLAVE1 INSTRUCCIONES:cuerpo LLAVE2
+                    {: 
+                        ASTNode initNode = new Assign(idInit, eInit, idInitleft, idInitright);
+                        ASTNode incNode  = new Assign(idInc, eInc, idIncleft, idIncright);
+                        RESULT = new com.olc1.ast.stm.ForNode(initNode, cond, incNode, cuerpo); 
+                    :}
+
+                // === 3. FOR COMPLETO CON DECLARACIÓN CORTA  ===
+                | FOR ID:idInit DECLARAR_ASIGNAR EXPRESION:eInit FINCADENA EXPRESION:cond FINCADENA ID:idInc ASIGNAR EXPRESION:eInc LLAVE1 INSTRUCCIONES:cuerpo LLAVE2
+                    {: 
+                        ASTNode nodoInit = new com.olc1.ast.stm.ShortDeclaration(idInit, eInit, idInitleft, idInitright);
+                        ASTNode nodoInc  = new Assign(idInc, eInc, idIncleft, idIncright);
+                        RESULT = new com.olc1.ast.stm.ForNode(nodoInit, cond, nodoInc, cuerpo); 
+                    :}
+
+                // === 4. FOR CON DECLARACIÓN CORTA E INCREMENTO SINTÁCTICO  ===
+                | FOR ID:idInit DECLARAR_ASIGNAR EXPRESION:eInit FINCADENA EXPRESION:cond FINCADENA ID:idInc INCREMENTO LLAVE1 INSTRUCCIONES:cuerpo LLAVE2
+                    {: 
+                        ASTNode nodoInit = new com.olc1.ast.stm.ShortDeclaration(idInit, eInit, idInitleft, idInitright);
+                        ASTNode nodoInc  = new Assign(idInc, new Add(new VarRef(idInc, idIncleft, idIncright), new Integers(1, idIncleft, idIncright)), idIncleft, idIncright);
+                        RESULT = new com.olc1.ast.stm.ForNode(nodoInit, cond, nodoInc, cuerpo); 
+                    :}
+                    
+                // === 5. FOR CON ASIGNACIÓN NORMAL E INCREMENTO SINTÁCTICO  ===
+                | FOR ID:idInit ASIGNAR EXPRESION:eInit FINCADENA EXPRESION:cond FINCADENA ID:idInc INCREMENTO LLAVE1 INSTRUCCIONES:cuerpo LLAVE2
+                    {: 
+                        ASTNode initNode = new Assign(idInit, eInit, idInitleft, idInitright);
+                        ASTNode incNode  = new Assign(idInc, new Add(new VarRef(idInc, idIncleft, idIncright), new Integers(1, idIncleft, idIncright)), idIncleft, idIncright);
+                        RESULT = new com.olc1.ast.stm.ForNode(initNode, cond, incNode, cuerpo); 
+                    :}
+
+                // === 6. FOR CON DECLARACIÓN CORTA Y ASIGNACIÓN COMPUESTA (+= y -=) ===
+                | FOR ID:idInit DECLARAR_ASIGNAR EXPRESION:eInit FINCADENA EXPRESION:cond FINCADENA ID:idInc MAS_IGUAL EXPRESION:eInc LLAVE1 INSTRUCCIONES:cuerpo LLAVE2
+                    {: 
+                        ASTNode nodoInit = new com.olc1.ast.stm.ShortDeclaration(idInit, eInit, idInitleft, idInitright);
+                        ASTNode nodoInc  = new Assign(idInc, new Add(new VarRef(idInc, idIncleft, idIncright), eInc), idIncleft, idIncright);
+                        RESULT = new com.olc1.ast.stm.ForNode(nodoInit, cond, nodoInc, cuerpo); 
+                    :}
+                | FOR ID:idInit DECLARAR_ASIGNAR EXPRESION:eInit FINCADENA EXPRESION:cond FINCADENA ID:idInc MENOS_IGUAL EXPRESION:eInc LLAVE1 INSTRUCCIONES:cuerpo LLAVE2
+                    {: 
+                        ASTNode nodoInit = new com.olc1.ast.stm.ShortDeclaration(idInit, eInit, idInitleft, idInitright);
+                        ASTNode nodoInc  = new Assign(idInc, new Sub(new VarRef(idInc, idIncleft, idIncright), eInc), idIncleft, idIncright);
+                        RESULT = new com.olc1.ast.stm.ForNode(nodoInit, cond, nodoInc, cuerpo); 
+                    :}
+
+                // === 7. FOR CON ASIGNACIÓN NORMAL Y ASIGNACIÓN COMPUESTA (+= y -=) ===
+                | FOR ID:idInit ASIGNAR EXPRESION:eInit FINCADENA EXPRESION:cond FINCADENA ID:idInc MAS_IGUAL EXPRESION:eInc LLAVE1 INSTRUCCIONES:cuerpo LLAVE2
+                    {: 
+                        ASTNode initNode = new Assign(idInit, eInit, idInitleft, idInitright);
+                        ASTNode incNode  = new Assign(idInc, new Add(new VarRef(idInc, idIncleft, idIncright), eInc), idIncleft, idIncright);
+                        RESULT = new com.olc1.ast.stm.ForNode(initNode, cond, incNode, cuerpo); 
+                    :}
+                | FOR ID:idInit ASIGNAR EXPRESION:eInit FINCADENA EXPRESION:cond FINCADENA ID:idInc MENOS_IGUAL EXPRESION:eInc LLAVE1 INSTRUCCIONES:cuerpo LLAVE2
+                    {: 
+                        ASTNode initNode = new Assign(idInit, eInit, idInitleft, idInitright);
+                        ASTNode incNode  = new Assign(idInc, new Sub(new VarRef(idInc, idIncleft, idIncright), eInc), idIncleft, idIncright);
+                        RESULT = new com.olc1.ast.stm.ForNode(initNode, cond, incNode, cuerpo); 
+                    :}
+
+                | BREAK OPCIONAL_PTCOMA       {: RESULT = new com.olc1.ast.stm.BreakNode(); :}
+                | CONTINUE OPCIONAL_PTCOMA    {: RESULT = new com.olc1.ast.stm.ContinueNode(); :}
+
+                // === ASIGNACIONES COMPUESTAS ===
+                | ID:id MAS_IGUAL EXPRESION:e OPCIONAL_PTCOMA
+                    {: 
+                        ASTNode suma = new Add(new VarRef(id, idleft, idright), e);
+                        RESULT = new Assign(id, suma, idleft, idright); 
+                    :}
+                | ID:id MENOS_IGUAL EXPRESION:e OPCIONAL_PTCOMA
+                    {: 
+                        ASTNode resta = new Sub(new VarRef(id, idleft, idright), e);
+                        RESULT = new Assign(id, resta, idleft, idright); 
+                    :}
+
+                /* === MODO PÁNICO AGRESIVO (SIN NECESIDAD DE ) === */
+                
+                // Si falla, intenta recuperarse en el siguiente punto y coma
+                | error FINCADENA {: RESULT = new com.olc1.ast.stm.EmptyNode(); :}
+                
+                // Si no hay punto y coma, intenta recuperarse en la siguiente sentencia
+                | error VAR       {: RESULT = new com.olc1.ast.stm.EmptyNode(); :}
+                | error IMPRIMIR  {: RESULT = new com.olc1.ast.stm.EmptyNode(); :}
+                | error IF        {: RESULT = new com.olc1.ast.stm.EmptyNode(); :}
+                | error FOR       {: RESULT = new com.olc1.ast.stm.EmptyNode(); :}
+                | error BREAK     {: RESULT = new com.olc1.ast.stm.EmptyNode(); :}
+                | error CONTINUE  {: RESULT = new com.olc1.ast.stm.EmptyNode(); :}
+                | VAR error       {: RESULT = new com.olc1.ast.stm.EmptyNode(); :}
+                | VAR ID error    {: RESULT = new com.olc1.ast.stm.EmptyNode(); :}
+                | ID error        {: RESULT = new com.olc1.ast.stm.EmptyNode(); :}
+                
+                // Si falla dentro de un bloque, intenta recuperarse al cerrar la llave
+                | error LLAVE2    {: RESULT = new com.olc1.ast.stm.EmptyNode(); :}
+                // === CÁPSULA DE ÁMBITO LOCAL / BLOQUE  ===
+                | LLAVE1 INSTRUCCIONES:ins LLAVE2
+                    {: RESULT = new com.olc1.ast.stm.BlockNode(ins); :}
+
+
+                // === DECLARACIONES EXPLÍCITAS (EVITANDO CONFLICTOS DE TIPOS EN CUP) ===
+                | VAR ID:id T_INT ASIGNAR EXPRESION:e OPCIONAL_PTCOMA
+                    {: RESULT = new com.olc1.ast.stm.VarDeclaration(id, "int", e, idleft, idright); :}
+                | VAR ID:id T_FLOAT64 ASIGNAR EXPRESION:e OPCIONAL_PTCOMA
+                    {: RESULT = new com.olc1.ast.stm.VarDeclaration(id, "float64", e, idleft, idright); :}
+                | VAR ID:id T_STRING ASIGNAR EXPRESION:e OPCIONAL_PTCOMA
+                    {: RESULT = new com.olc1.ast.stm.VarDeclaration(id, "string", e, idleft, idright); :}
+                | VAR ID:id T_BOOL ASIGNAR EXPRESION:e OPCIONAL_PTCOMA
+                    {: RESULT = new com.olc1.ast.stm.VarDeclaration(id, "bool", e, idleft, idright); :}
+                | VAR ID:id T_RUNE ASIGNAR EXPRESION:e OPCIONAL_PTCOMA
+                    {: RESULT = new com.olc1.ast.stm.VarDeclaration(id, "rune", e, idleft, idright); :}
+                
+                | VAR ID:id T_INT OPCIONAL_PTCOMA
+                    {: RESULT = new com.olc1.ast.stm.VarDeclaration(id, "int", null, idleft, idright); :}
+                | VAR ID:id T_FLOAT64 OPCIONAL_PTCOMA
+                    {: RESULT = new com.olc1.ast.stm.VarDeclaration(id, "float64", null, idleft, idright); :}
+                | VAR ID:id T_STRING OPCIONAL_PTCOMA
+                    {: RESULT = new com.olc1.ast.stm.VarDeclaration(id, "string", null, idleft, idright); :}
+                | VAR ID:id T_BOOL OPCIONAL_PTCOMA
+                    {: RESULT = new com.olc1.ast.stm.VarDeclaration(id, "bool", null, idleft, idright); :}
+                | VAR ID:id T_RUNE OPCIONAL_PTCOMA
+                    {: RESULT = new com.olc1.ast.stm.VarDeclaration(id, "rune", null, idleft, idright); :}
+
+                // === INCREMENTO Y DECREMENTO DIRECTO ===
+                | ID:id INCREMENTO OPCIONAL_PTCOMA
+                    {: 
+                        ASTNode suma = new Add(new VarRef(id, idleft, idright), new Integers(1, idleft, idright));
+                        RESULT = new Assign(id, suma, idleft, idright); 
+                    :}
+                | ID:id DECREMENTO OPCIONAL_PTCOMA
+                    {: 
+                        ASTNode resta = new Sub(new VarRef(id, idleft, idright), new Integers(1, idleft, idright));
+                        RESULT = new Assign(id, resta, idleft, idright); 
+                    :}
+    ;
+
+
+    LISTA_CASES ::= LISTA_CASES:list CASE EXPRESION:e DOS_PUNTOS INSTRUCCIONES:ins
+                {: list.add(new CaseNode(e, ins)); RESULT = list; :}
+              | LISTA_CASES:list DEFAULT DOS_PUNTOS INSTRUCCIONES:ins
+                {: list.add(new CaseNode(null, ins)); RESULT = list; :}
+              | /* vacío */ {: RESULT = new java.util.ArrayList<ASTNode>(); :}
 ;
 
-INSTRUCCION ::= IMPRIMIR PAR1 LISTA_EXPRESIONES:list PAR2 OPCIONAL_PTCOMA
-                  {: RESULT = new Imprimir(list); :}
+    
 
-              | IMPRIMIR PAR1 PAR2 OPCIONAL_PTCOMA
-                  {: RESULT = new Imprimir(new java.util.ArrayList<>()); :}
-              
-              | ID:id ASIGNAR EXPRESION:e OPCIONAL_PTCOMA       
-                  {: RESULT = new Assign(id, e, idleft, idright);  :}
-              
-              // === NUEVA REGLA: DECLARACIÓN CORTA (:=) ===
-              | ID:id DECLARAR_ASIGNAR EXPRESION:e OPCIONAL_PTCOMA       
-                  {: RESULT = new com.olc1.ast.stm.ShortDeclaration(id, e, idleft, idright); :}
+    EXPRESION ::= MENOS EXPRESION:a               {: RESULT = new Negate(a); :} %prec UMENOS
+                | EXPRESION:a MAS EXPRESION:b     {: RESULT = new Add(a, b); :}
+                | EXPRESION:a MENOS EXPRESION:b   {: RESULT = new Sub(a, b); :}
+                | EXPRESION:a MULT EXPRESION:b    {: RESULT = new Mul(a, b); :}
+                | EXPRESION:a DIV EXPRESION:b     {: RESULT = new Div(a, b); :}  
+                | EXPRESION:a MOD EXPRESION:b     {: RESULT = new com.olc1.ast.exp.Mod(a, b, aleft, aright); :}
+                | PAR1 EXPRESION:e PAR2           {: RESULT = new Paren(e); :}
+                
+                // === OPERADORES RELACIONALES ===
+                | EXPRESION:a IGUAL EXPRESION:b         {: RESULT = new RelationalOp("==", a, b, aleft, aright); :}
+                | EXPRESION:a DIFERENTE EXPRESION:b     {: RESULT = new RelationalOp("!=", a, b, aleft, aright); :}
+                | EXPRESION:a MENOR EXPRESION:b         {: RESULT = new RelationalOp("<", a, b, aleft, aright); :}
+                | EXPRESION:a MAYOR EXPRESION:b         {: RESULT = new RelationalOp(">", a, b, aleft, aright); :}
+                | EXPRESION:a MENORIGUAL EXPRESION:b    {: RESULT = new RelationalOp("<=", a, b, aleft, aright); :}
+                | EXPRESION:a MAYORIGUAL EXPRESION:b    {: RESULT = new RelationalOp(">=", a, b, aleft, aright); :}
+                
+                // === OPERADORES LÓGICOS ===
+                | EXPRESION:a AND EXPRESION:b           {: RESULT = new LogicalOp("&&", a, b, aleft, aright); :}
+                | EXPRESION:a OR EXPRESION:b            {: RESULT = new LogicalOp("||", a, b, aleft, aright); :}
+                | NOT EXPRESION:a                       {: RESULT = new LogicalOp("!", a, aleft, aright); :}
+                
+                // === LITERALES E IDENTIFICADORES ===
+                | ENTERO:e                        {: RESULT = new Integers(Integer.parseInt(e), eleft, eright); :}
+                | DECIMAL:e                       {: RESULT = new Decimal(Double.parseDouble(e), eleft, eright); :}
+                | CADENA:e                        {: RESULT = new StringLiteral(e, eleft, eright); :} 
+                | TRUE:e                          {: RESULT = new BoolLiteral(true, eleft, eright); :}  
+                | FALSE:f                         {: RESULT = new BoolLiteral(false, fleft, fright); :} 
+                | ID:id                           {: RESULT = new VarRef(id, idleft, idright); :}
+                | NULL:n                          {: RESULT = new com.olc1.ast.exp.NullLiteral(nleft, nright); :}
+                | RUNE_LITERAL:r                   {: RESULT = new com.olc1.ast.exp.RuneLiteral(r, rleft, rright); :}
+                
+                // === FUNCIONES EMBEBIDAS NUMÉRICAS ===
+                | ATOI:a PAR1 EXPRESION:e PAR2          {: RESULT = new com.olc1.ast.exp.StrConvNode("atoi", e, aleft, aright); :}
+                | PARSEFLOAT:p PAR1 EXPRESION:e PAR2    {: RESULT = new com.olc1.ast.exp.StrConvNode("parsefloat", e, pleft, pright); :}
 
-              // === SENTENCIAS IF (CON DISMINUCIÓN DE AMBIGÜEDAD) ===
-              | IF EXPRESION:cond LLAVE1 INSTRUCCIONES:cuerpo LLAVE2
-                  {: RESULT = new IfNode(cond, cuerpo, null); :}
-              
-              | IF EXPRESION:cond LLAVE1 INSTRUCCIONES:cuerpo LLAVE2 ELSE INSTRUCCION:instElse
-                  {: 
-                      // Esta regla general absorbe tanto un "else if" como un "else { ... }"
-                      // debido a que los bloques entre llaves ya se consideran una INSTRUCCION.
-                      RESULT = new IfNode(cond, cuerpo, instElse); 
-                  :}
-
-              // === 1. FOR ESTILO WHILE (for n <= 15) ===
-              | FOR EXPRESION:cond LLAVE1 INSTRUCCIONES:cuerpo LLAVE2
-                  {: RESULT = new com.olc1.ast.stm.ForNode(null, cond, null, cuerpo); :}
-
-              // === 2. FOR COMPLETO CON ASIGNACIÓN NORMAL  ===
-              | FOR ID:idInit ASIGNAR EXPRESION:eInit FINCADENA EXPRESION:cond FINCADENA ID:idInc ASIGNAR EXPRESION:eInc LLAVE1 INSTRUCCIONES:cuerpo LLAVE2
-                  {: 
-                      ASTNode initNode = new Assign(idInit, eInit, idInitleft, idInitright);
-                      ASTNode incNode  = new Assign(idInc, eInc, idIncleft, idIncright);
-                      RESULT = new com.olc1.ast.stm.ForNode(initNode, cond, incNode, cuerpo); 
-                  :}
-
-              // === 3. FOR COMPLETO CON DECLARACIÓN CORTA  ===
-              | FOR ID:idInit DECLARAR_ASIGNAR EXPRESION:eInit FINCADENA EXPRESION:cond FINCADENA ID:idInc ASIGNAR EXPRESION:eInc LLAVE1 INSTRUCCIONES:cuerpo LLAVE2
-                  {: 
-                      ASTNode nodoInit = new com.olc1.ast.stm.ShortDeclaration(idInit, eInit, idInitleft, idInitright);
-                      ASTNode nodoInc  = new Assign(idInc, eInc, idIncleft, idIncright);
-                      RESULT = new com.olc1.ast.stm.ForNode(nodoInit, cond, nodoInc, cuerpo); 
-                  :}
-
-              // === 4. FOR CON DECLARACIÓN CORTA E INCREMENTO SINTÁCTICO  ===
-              | FOR ID:idInit DECLARAR_ASIGNAR EXPRESION:eInit FINCADENA EXPRESION:cond FINCADENA ID:idInc INCREMENTO LLAVE1 INSTRUCCIONES:cuerpo LLAVE2
-                  {: 
-                      ASTNode nodoInit = new com.olc1.ast.stm.ShortDeclaration(idInit, eInit, idInitleft, idInitright);
-                      ASTNode nodoInc  = new Assign(idInc, new Add(new VarRef(idInc, idIncleft, idIncright), new Integers(1, idIncleft, idIncright)), idIncleft, idIncright);
-                      RESULT = new com.olc1.ast.stm.ForNode(nodoInit, cond, nodoInc, cuerpo); 
-                  :}
-                  
-              // === 5. FOR CON ASIGNACIÓN NORMAL E INCREMENTO SINTÁCTICO  ===
-              | FOR ID:idInit ASIGNAR EXPRESION:eInit FINCADENA EXPRESION:cond FINCADENA ID:idInc INCREMENTO LLAVE1 INSTRUCCIONES:cuerpo LLAVE2
-                  {: 
-                      ASTNode initNode = new Assign(idInit, eInit, idInitleft, idInitright);
-                      ASTNode incNode  = new Assign(idInc, new Add(new VarRef(idInc, idIncleft, idIncright), new Integers(1, idIncleft, idIncright)), idIncleft, idIncright);
-                      RESULT = new com.olc1.ast.stm.ForNode(initNode, cond, incNode, cuerpo); 
-                  :}
-
-              // === 6. FOR CON DECLARACIÓN CORTA Y ASIGNACIÓN COMPUESTA (+= y -=) ===
-              | FOR ID:idInit DECLARAR_ASIGNAR EXPRESION:eInit FINCADENA EXPRESION:cond FINCADENA ID:idInc MAS_IGUAL EXPRESION:eInc LLAVE1 INSTRUCCIONES:cuerpo LLAVE2
-                  {: 
-                      ASTNode nodoInit = new com.olc1.ast.stm.ShortDeclaration(idInit, eInit, idInitleft, idInitright);
-                      ASTNode nodoInc  = new Assign(idInc, new Add(new VarRef(idInc, idIncleft, idIncright), eInc), idIncleft, idIncright);
-                      RESULT = new com.olc1.ast.stm.ForNode(nodoInit, cond, nodoInc, cuerpo); 
-                  :}
-              | FOR ID:idInit DECLARAR_ASIGNAR EXPRESION:eInit FINCADENA EXPRESION:cond FINCADENA ID:idInc MENOS_IGUAL EXPRESION:eInc LLAVE1 INSTRUCCIONES:cuerpo LLAVE2
-                  {: 
-                      ASTNode nodoInit = new com.olc1.ast.stm.ShortDeclaration(idInit, eInit, idInitleft, idInitright);
-                      ASTNode nodoInc  = new Assign(idInc, new Sub(new VarRef(idInc, idIncleft, idIncright), eInc), idIncleft, idIncright);
-                      RESULT = new com.olc1.ast.stm.ForNode(nodoInit, cond, nodoInc, cuerpo); 
-                  :}
-
-              // === 7. FOR CON ASIGNACIÓN NORMAL Y ASIGNACIÓN COMPUESTA (+= y -=) ===
-              | FOR ID:idInit ASIGNAR EXPRESION:eInit FINCADENA EXPRESION:cond FINCADENA ID:idInc MAS_IGUAL EXPRESION:eInc LLAVE1 INSTRUCCIONES:cuerpo LLAVE2
-                  {: 
-                      ASTNode initNode = new Assign(idInit, eInit, idInitleft, idInitright);
-                      ASTNode incNode  = new Assign(idInc, new Add(new VarRef(idInc, idIncleft, idIncright), eInc), idIncleft, idIncright);
-                      RESULT = new com.olc1.ast.stm.ForNode(initNode, cond, incNode, cuerpo); 
-                  :}
-              | FOR ID:idInit ASIGNAR EXPRESION:eInit FINCADENA EXPRESION:cond FINCADENA ID:idInc MENOS_IGUAL EXPRESION:eInc LLAVE1 INSTRUCCIONES:cuerpo LLAVE2
-                  {: 
-                      ASTNode initNode = new Assign(idInit, eInit, idInitleft, idInitright);
-                      ASTNode incNode  = new Assign(idInc, new Sub(new VarRef(idInc, idIncleft, idIncright), eInc), idIncleft, idIncright);
-                      RESULT = new com.olc1.ast.stm.ForNode(initNode, cond, incNode, cuerpo); 
-                  :}
-
-              | BREAK OPCIONAL_PTCOMA       {: RESULT = new com.olc1.ast.stm.BreakNode(); :}
-              | CONTINUE OPCIONAL_PTCOMA    {: RESULT = new com.olc1.ast.stm.ContinueNode(); :}
-
-              // === ASIGNACIONES COMPUESTAS ===
-              | ID:id MAS_IGUAL EXPRESION:e OPCIONAL_PTCOMA
-                  {: 
-                      ASTNode suma = new Add(new VarRef(id, idleft, idright), e);
-                      RESULT = new Assign(id, suma, idleft, idright); 
-                  :}
-              | ID:id MENOS_IGUAL EXPRESION:e OPCIONAL_PTCOMA
-                  {: 
-                      ASTNode resta = new Sub(new VarRef(id, idleft, idright), e);
-                      RESULT = new Assign(id, resta, idleft, idright); 
-                  :}
-
-             /* === MODO PÁNICO AGRESIVO (SIN NECESIDAD DE ) === */
-              
-              // Si falla, intenta recuperarse en el siguiente punto y coma
-              | error FINCADENA {: RESULT = new com.olc1.ast.stm.EmptyNode(); :}
-              
-              // Si no hay punto y coma, intenta recuperarse en la siguiente sentencia
-              | error VAR       {: RESULT = new com.olc1.ast.stm.EmptyNode(); :}
-              | error IMPRIMIR  {: RESULT = new com.olc1.ast.stm.EmptyNode(); :}
-              | error IF        {: RESULT = new com.olc1.ast.stm.EmptyNode(); :}
-              | error FOR       {: RESULT = new com.olc1.ast.stm.EmptyNode(); :}
-              | error BREAK     {: RESULT = new com.olc1.ast.stm.EmptyNode(); :}
-              | error CONTINUE  {: RESULT = new com.olc1.ast.stm.EmptyNode(); :}
-              | VAR error       {: RESULT = new com.olc1.ast.stm.EmptyNode(); :}
-              | VAR ID error    {: RESULT = new com.olc1.ast.stm.EmptyNode(); :}
-              | ID error        {: RESULT = new com.olc1.ast.stm.EmptyNode(); :}
-              
-              // Si falla dentro de un bloque, intenta recuperarse al cerrar la llave
-              | error LLAVE2    {: RESULT = new com.olc1.ast.stm.EmptyNode(); :}
-              // === CÁPSULA DE ÁMBITO LOCAL / BLOQUE  ===
-              | LLAVE1 INSTRUCCIONES:ins LLAVE2
-                  {: RESULT = new com.olc1.ast.stm.BlockNode(ins); :}
-
-
-              // === DECLARACIONES EXPLÍCITAS (EVITANDO CONFLICTOS DE TIPOS EN CUP) ===
-              | VAR ID:id T_INT ASIGNAR EXPRESION:e OPCIONAL_PTCOMA
-                  {: RESULT = new com.olc1.ast.stm.VarDeclaration(id, "int", e, idleft, idright); :}
-              | VAR ID:id T_FLOAT64 ASIGNAR EXPRESION:e OPCIONAL_PTCOMA
-                  {: RESULT = new com.olc1.ast.stm.VarDeclaration(id, "float64", e, idleft, idright); :}
-              | VAR ID:id T_STRING ASIGNAR EXPRESION:e OPCIONAL_PTCOMA
-                  {: RESULT = new com.olc1.ast.stm.VarDeclaration(id, "string", e, idleft, idright); :}
-              | VAR ID:id T_BOOL ASIGNAR EXPRESION:e OPCIONAL_PTCOMA
-                  {: RESULT = new com.olc1.ast.stm.VarDeclaration(id, "bool", e, idleft, idright); :}
-              | VAR ID:id T_RUNE ASIGNAR EXPRESION:e OPCIONAL_PTCOMA
-                  {: RESULT = new com.olc1.ast.stm.VarDeclaration(id, "rune", e, idleft, idright); :}
-              
-              | VAR ID:id T_INT OPCIONAL_PTCOMA
-                  {: RESULT = new com.olc1.ast.stm.VarDeclaration(id, "int", null, idleft, idright); :}
-              | VAR ID:id T_FLOAT64 OPCIONAL_PTCOMA
-                  {: RESULT = new com.olc1.ast.stm.VarDeclaration(id, "float64", null, idleft, idright); :}
-              | VAR ID:id T_STRING OPCIONAL_PTCOMA
-                  {: RESULT = new com.olc1.ast.stm.VarDeclaration(id, "string", null, idleft, idright); :}
-              | VAR ID:id T_BOOL OPCIONAL_PTCOMA
-                  {: RESULT = new com.olc1.ast.stm.VarDeclaration(id, "bool", null, idleft, idright); :}
-              | VAR ID:id T_RUNE OPCIONAL_PTCOMA
-                  {: RESULT = new com.olc1.ast.stm.VarDeclaration(id, "rune", null, idleft, idright); :}
-
-              // === INCREMENTO Y DECREMENTO DIRECTO ===
-              | ID:id INCREMENTO OPCIONAL_PTCOMA
-                  {: 
-                      ASTNode suma = new Add(new VarRef(id, idleft, idright), new Integers(1, idleft, idright));
-                      RESULT = new Assign(id, suma, idleft, idright); 
-                  :}
-              | ID:id DECREMENTO OPCIONAL_PTCOMA
-                  {: 
-                      ASTNode resta = new Sub(new VarRef(id, idleft, idright), new Integers(1, idleft, idright));
-                      RESULT = new Assign(id, resta, idleft, idright); 
-                  :}
-;
-
-EXPRESION ::= MENOS EXPRESION:a               {: RESULT = new Negate(a); :} %prec UMENOS
-            | EXPRESION:a MAS EXPRESION:b     {: RESULT = new Add(a, b); :}
-            | EXPRESION:a MENOS EXPRESION:b   {: RESULT = new Sub(a, b); :}
-            | EXPRESION:a MULT EXPRESION:b    {: RESULT = new Mul(a, b); :}
-            | EXPRESION:a DIV EXPRESION:b     {: RESULT = new Div(a, b); :}  
-            | EXPRESION:a MOD EXPRESION:b     {: RESULT = new com.olc1.ast.exp.Mod(a, b, aleft, aright); :}
-            | PAR1 EXPRESION:e PAR2           {: RESULT = new Paren(e); :}
-            
-            // === OPERADORES RELACIONALES ===
-            | EXPRESION:a IGUAL EXPRESION:b         {: RESULT = new RelationalOp("==", a, b, aleft, aright); :}
-            | EXPRESION:a DIFERENTE EXPRESION:b     {: RESULT = new RelationalOp("!=", a, b, aleft, aright); :}
-            | EXPRESION:a MENOR EXPRESION:b         {: RESULT = new RelationalOp("<", a, b, aleft, aright); :}
-            | EXPRESION:a MAYOR EXPRESION:b         {: RESULT = new RelationalOp(">", a, b, aleft, aright); :}
-            | EXPRESION:a MENORIGUAL EXPRESION:b    {: RESULT = new RelationalOp("<=", a, b, aleft, aright); :}
-            | EXPRESION:a MAYORIGUAL EXPRESION:b    {: RESULT = new RelationalOp(">=", a, b, aleft, aright); :}
-            
-            // === OPERADORES LÓGICOS ===
-            | EXPRESION:a AND EXPRESION:b           {: RESULT = new LogicalOp("&&", a, b, aleft, aright); :}
-            | EXPRESION:a OR EXPRESION:b            {: RESULT = new LogicalOp("||", a, b, aleft, aright); :}
-            | NOT EXPRESION:a                       {: RESULT = new LogicalOp("!", a, aleft, aright); :}
-            
-            // === LITERALES E IDENTIFICADORES ===
-            | ENTERO:e                        {: RESULT = new Integers(Integer.parseInt(e), eleft, eright); :}
-            | DECIMAL:e                       {: RESULT = new Decimal(Double.parseDouble(e), eleft, eright); :}
-            | CADENA:e                        {: RESULT = new StringLiteral(e, eleft, eright); :} 
-            | TRUE:e                          {: RESULT = new BoolLiteral(true, eleft, eright); :}  
-            | FALSE:f                         {: RESULT = new BoolLiteral(false, fleft, fright); :} 
-            | ID:id                           {: RESULT = new VarRef(id, idleft, idright); :}
-            | NULL:n                          {: RESULT = new com.olc1.ast.exp.NullLiteral(nleft, nright); :}
-            | RUNE_LITERAL:r                   {: RESULT = new com.olc1.ast.exp.RuneLiteral(r, rleft, rright); :}
-            
-            // === FUNCIONES EMBEBIDAS NUMÉRICAS ===
-            | ATOI:a PAR1 EXPRESION:e PAR2          {: RESULT = new com.olc1.ast.exp.StrConvNode("atoi", e, aleft, aright); :}
-            | PARSEFLOAT:p PAR1 EXPRESION:e PAR2    {: RESULT = new com.olc1.ast.exp.StrConvNode("parsefloat", e, pleft, pright); :}
-
-            // === FUNCION EMBEBIDA DE TIPO ===
-            | REFLECT:r PAR1 EXPRESION:e PAR2       {: RESULT = new com.olc1.ast.exp.ReflectNode(e, rleft, rright); :}
-;
+                // === FUNCION EMBEBIDA DE TIPO ===
+                | REFLECT:r PAR1 EXPRESION:e PAR2       {: RESULT = new com.olc1.ast.exp.ReflectNode(e, rleft, rright); :}
+    ;

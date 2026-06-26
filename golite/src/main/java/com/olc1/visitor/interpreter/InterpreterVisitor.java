@@ -543,4 +543,35 @@ public class InterpreterVisitor implements Visitor<ValueWrapper> {
         int asciiValue = ctx.text().charAt(1);
         return new IntValue(asciiValue, ctx.line(), ctx.column());
     }
+
+    @Override
+    public ValueWrapper visit(com.olc1.ast.stm.SwitchNode.Context ctx) {
+        ValueWrapper valorSwitch = Visit(ctx.expression);
+        boolean ejecutado = false;
+
+        for (ASTNode caso : ctx.cases) {
+            CaseNode c = (CaseNode) caso;
+            
+            // Caso Default
+            if (c.expression == null) {
+                if (!ejecutado) Visit(c.instrucciones);
+                break;
+            }
+
+            // Casos normales
+            ValueWrapper valorCaso = Visit(c.expression);
+            if (valorSwitch.toString().equals(valorCaso.toString())) {
+                Visit(c.instrucciones);
+                ejecutado = true;
+                break; // Break implícito de GoLite
+            }
+        }
+        return defaultVoid;
+    }
+
+    @Override
+    public ValueWrapper visit(com.olc1.ast.stm.CaseNode.Context ctx) {
+        // Retornamos void porque la ejecución real la hace el SwitchNode arriba
+        return defaultVoid; 
+    }   
 }
