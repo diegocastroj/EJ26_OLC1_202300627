@@ -31,5 +31,6 @@ public interface Visitor<T> {
     T visit(com.olc1.ast.stm.ShortDeclaration.Context ctx);
     T visit(com.olc1.ast.stm.VarDeclaration.Context ctx);
     T visit(com.olc1.ast.stm.BlockNode.Context ctx);
+    T visit(com.olc1.ast.stm.EmptyNode node);
     T visit(com.olc1.ast.exp.RuneLiteral.Context ctx);
 }

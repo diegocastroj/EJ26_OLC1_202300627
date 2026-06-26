@@ -6,31 +6,50 @@ import com.olc1.ast.ASTNode;
 import com.olc1.ast.exp.*;
 import com.olc1.ast.stm.*;
 
+/* =====================================================================
+   ---> CAPTURA Y LOG DE ERRORES SINTÁCTICOS (MODO PÁNICO) <---
+===================================================================== */
 parser code
 {:
     Lexer s;
-    public java.util.ArrayList<com.olc1.reports.GoliteError> errors = new java.util.ArrayList<>();
+    // Lista pública donde se guardarán los errores sintácticos para el reporte HTML
+    public java.util.ArrayList<com.olc1.reports.GoliteError> erroresSintacticos = new java.util.ArrayList<>();
 
     parser(Lexer s) {
         this.s = s;
     }
 
+    // 1. Se ejecuta cada vez que el Modo Pánico encuentra un error y busca recuperarse
+    @Override
     public void syntax_error(Symbol s) {
-        String desc = "No se esperaba el token '" + s.value + "'";
-        System.err.println("Error sintáctico: " + desc + " en línea " + s.left + ", columna " + s.right);
+        String lexema = (s.value != null) ? s.value.toString() : "desconocido";
+        int linea = s.left;
+        int columna = s.right;
         
-        // ORDEN CORRECTO: Tipo (String), Descripción (String), Línea (int), Columna (int)
-        errors.add(new com.olc1.reports.GoliteError("Sintáctico", desc, s.left, s.right));
+        String desc = "No se esperaba el token '" + lexema + "'";
+        System.err.println("Error sintáctico: " + desc + " en línea " + linea + ", columna " + columna);
+        
+        // Evitamos duplicar logs si las coordenadas vienen dañadas
+        if (linea != -1) {
+            erroresSintacticos.add(new com.olc1.reports.GoliteError("Sintáctico", desc, linea, columna));
+        }
     }
 
-    public void unrecovered_syntax_error(Symbol s) {
-        String desc = "Error sintáctico fatal: No se pudo recuperar el analizador";
-        System.err.println(desc + " en línea " + s.left + ", columna " + s.right);
+    // 2. Se ejecuta cuando el Modo Pánico falla (cuando encuentra el error fatal)
+    @Override
+    public void unrecovered_syntax_error(Symbol s) throws java.lang.Exception {
+        // Si CUP manda -1 porque el analizador murió en el vacío, 
+        // usamos 0 o la última línea conocida para no mostrar números negativos
+        int linea = (s.left != -1) ? s.left : 1;
+        int columna = (s.right != -1) ? s.right : 1;
         
-        // ORDEN CORRECTO: Tipo (String), Descripción (String), Línea (int), Columna (int)
-        errors.add(new com.olc1.reports.GoliteError("Sintáctico", desc, s.left, s.right));
+        String desc = "Error sintáctico fatal: No se pudo recuperar el analizador";
+        System.err.println(desc + " en línea " + linea + ", columna " + columna);
+        
+        erroresSintacticos.add(new com.olc1.reports.GoliteError("Sintáctico", desc, linea, columna));
     }
 :}
+/* ===================================================================== */
 
 action code
 {:
@@ -74,7 +93,6 @@ INICIO ::= FUNC MAIN PAR1 PAR2 LLAVE1 INSTRUCCIONES:ins LLAVE2 {: RESULT = ins; 
          | INSTRUCCIONES:ins                              {: RESULT = ins; :}
 ;
 
-
 INSTRUCCIONES ::= INSTRUCCIONES:list INSTRUCCION:inst 
                   {: 
                       // Como la lista es privada, llamamos al método público add() del nodo.
@@ -108,7 +126,7 @@ LISTA_EXPRESIONES ::= LISTA_EXPRESIONES:list COMA EXPRESION:e
 
 INSTRUCCION ::= IMPRIMIR PAR1 LISTA_EXPRESIONES:list PAR2 OPCIONAL_PTCOMA
                   {: RESULT = new Imprimir(list); :}
-              
+
               | IMPRIMIR PAR1 PAR2 OPCIONAL_PTCOMA
                   {: RESULT = new Imprimir(new java.util.ArrayList<>()); :}
               
@@ -129,6 +147,7 @@ INSTRUCCION ::= IMPRIMIR PAR1 LISTA_EXPRESIONES:list PAR2 OPCIONAL_PTCOMA
                       // debido a que los bloques entre llaves ya se consideran una INSTRUCCION.
                       RESULT = new IfNode(cond, cuerpo, instElse); 
                   :}
+
               // === 1. FOR ESTILO WHILE (for n <= 15) ===
               | FOR EXPRESION:cond LLAVE1 INSTRUCCIONES:cuerpo LLAVE2
                   {: RESULT = new com.olc1.ast.stm.ForNode(null, cond, null, cuerpo); :}
@@ -164,6 +183,7 @@ INSTRUCCION ::= IMPRIMIR PAR1 LISTA_EXPRESIONES:list PAR2 OPCIONAL_PTCOMA
                       ASTNode incNode  = new Assign(idInc, new Add(new VarRef(idInc, idIncleft, idIncright), new Integers(1, idIncleft, idIncright)), idIncleft, idIncright);
                       RESULT = new com.olc1.ast.stm.ForNode(initNode, cond, incNode, cuerpo); 
                   :}
+
               // === 6. FOR CON DECLARACIÓN CORTA Y ASIGNACIÓN COMPUESTA (+= y -=) ===
               | FOR ID:idInit DECLARAR_ASIGNAR EXPRESION:eInit FINCADENA EXPRESION:cond FINCADENA ID:idInc MAS_IGUAL EXPRESION:eInc LLAVE1 INSTRUCCIONES:cuerpo LLAVE2
                   {: 
@@ -207,11 +227,24 @@ INSTRUCCION ::= IMPRIMIR PAR1 LISTA_EXPRESIONES:list PAR2 OPCIONAL_PTCOMA
                       RESULT = new Assign(id, resta, idleft, idright); 
                   :}
 
-              | error FINCADENA
-                  {: 
-                      RESULT = new com.olc1.ast.stm.BreakNode(); // Solo para no dejar el nodo vacío, realmente no se ejecutará
-                  :}
-                  
+             /* === MODO PÁNICO AGRESIVO (SIN NECESIDAD DE ) === */
+              
+              // Si falla, intenta recuperarse en el siguiente punto y coma
+              | error FINCADENA {: RESULT = new com.olc1.ast.stm.EmptyNode(); :}
+              
+              // Si no hay punto y coma, intenta recuperarse en la siguiente sentencia
+              | error VAR       {: RESULT = new com.olc1.ast.stm.EmptyNode(); :}
+              | error IMPRIMIR  {: RESULT = new com.olc1.ast.stm.EmptyNode(); :}
+              | error IF        {: RESULT = new com.olc1.ast.stm.EmptyNode(); :}
+              | error FOR       {: RESULT = new com.olc1.ast.stm.EmptyNode(); :}
+              | error BREAK     {: RESULT = new com.olc1.ast.stm.EmptyNode(); :}
+              | error CONTINUE  {: RESULT = new com.olc1.ast.stm.EmptyNode(); :}
+              | VAR error       {: RESULT = new com.olc1.ast.stm.EmptyNode(); :}
+              | VAR ID error    {: RESULT = new com.olc1.ast.stm.EmptyNode(); :}
+              | ID error        {: RESULT = new com.olc1.ast.stm.EmptyNode(); :}
+              
+              // Si falla dentro de un bloque, intenta recuperarse al cerrar la llave
+              | error LLAVE2    {: RESULT = new com.olc1.ast.stm.EmptyNode(); :}
               // === CÁPSULA DE ÁMBITO LOCAL / BLOQUE  ===
               | LLAVE1 INSTRUCCIONES:ins LLAVE2
                   {: RESULT = new com.olc1.ast.stm.BlockNode(ins); :}
@@ -239,7 +272,6 @@ INSTRUCCION ::= IMPRIMIR PAR1 LISTA_EXPRESIONES:list PAR2 OPCIONAL_PTCOMA
                   {: RESULT = new com.olc1.ast.stm.VarDeclaration(id, "bool", null, idleft, idright); :}
               | VAR ID:id T_RUNE OPCIONAL_PTCOMA
                   {: RESULT = new com.olc1.ast.stm.VarDeclaration(id, "rune", null, idleft, idright); :}
-
 
               // === INCREMENTO Y DECREMENTO DIRECTO ===
               | ID:id INCREMENTO OPCIONAL_PTCOMA

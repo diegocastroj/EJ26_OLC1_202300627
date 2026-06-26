@@ -20,6 +20,8 @@ import com.olc1.Lexer;
 import com.olc1.TokenTrackerLexer;
 import com.olc1.parser;
 import com.olc1.ast.ASTNode;
+import com.olc1.ast.stm.BreakException;
+import com.olc1.ast.stm.ContinueException;
 import com.olc1.reports.GoliteError;
 import com.olc1.reports.ReportGenerator;
 import com.olc1.visitor.interpreter.InterpreterVisitor;
@@ -31,6 +33,7 @@ public class GoliteFrame extends JFrame {
     private Lexer analizadorLexico;
     private parser analizadorSintactico;
     private TokenTrackerLexer rastreadorTokens;
+    private InterpreterVisitor interprete;
 
     // Paleta de colores planos estilo VS Code
     private final Color FONDO_OSCURO = new Color(30, 30, 30);       // #1E1E1E
@@ -39,7 +42,7 @@ public class GoliteFrame extends JFrame {
     private final Color SALIDA_CONSOLA = new Color(156, 220, 254);   // #9CDCFE (Celeste plano)
     private final Color COLOR_DIVISOR = new Color(45, 45, 45);       // #2D2D2D
 
-    public GoliteFrame() {
+   public GoliteFrame() {
         setTitle("GoLite IDE");
         setMinimumSize(new Dimension(700, 500));
         setSize(new Dimension(1200, 750));
@@ -54,8 +57,44 @@ public class GoliteFrame extends JFrame {
         editorCodigo.setCaretColor(Color.WHITE);
         editorCodigo.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
         
+        editorCodigo.setLineWrap(false); 
+        
         JScrollPane panelDesplazamientoEditor = new JScrollPane(editorCodigo);
         panelDesplazamientoEditor.setBorder(BorderFactory.createEmptyBorder()); // Elimina bordes blancos nativos
+
+        JTextArea numerosLinea = new JTextArea("1");
+        numerosLinea.setBackground(COLOR_DIVISOR); // Usamos tu mismo color de divisor de fondo
+        numerosLinea.setForeground(Color.LIGHT_GRAY);
+        numerosLinea.setEditable(false);
+        numerosLinea.setFocusable(false);
+        numerosLinea.setFont(editorCodigo.getFont()); // Mismo tipo y tamaño de letra
+        numerosLinea.setBorder(BorderFactory.createEmptyBorder(15, 5, 15, 10)); 
+
+        panelDesplazamientoEditor.setRowHeaderView(numerosLinea);
+
+        Runnable actualizarNumeros = () -> {
+            SwingUtilities.invokeLater(() -> {
+                int totalLineas = editorCodigo.getLineCount();
+                StringBuilder textoNumeros = new StringBuilder();
+                for (int i = 1; i <= totalLineas; i++) {
+                    textoNumeros.append(i).append("\n"); // Usar \n directo suele ser más estable en JTextArea
+                }
+                numerosLinea.setText(textoNumeros.toString());
+            });
+        };
+
+        editorCodigo.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
+            @Override
+            public void insertUpdate(javax.swing.event.DocumentEvent e) { actualizarNumeros.run(); }
+            @Override
+            public void removeUpdate(javax.swing.event.DocumentEvent e) { actualizarNumeros.run(); }
+            @Override
+            public void changedUpdate(javax.swing.event.DocumentEvent e) { actualizarNumeros.run(); }
+        });
+
+        // Escuchador 2 (Refuerzo): Detecta cuando el cursor se mueve, seleccionas texto, 
+        // o cargas un archivo nuevo desde el menú. ¡Esto lo hace a prueba de fallos!
+        editorCodigo.addCaretListener(e -> actualizarNumeros.run());
 
         // 2. Configuración del área de la terminal / consola
         areaConsola = new JTextArea();
@@ -70,8 +109,10 @@ public class GoliteFrame extends JFrame {
 
         // 3. Creación del panel divisor móvil
         JSplitPane panelDivisor = new JSplitPane(JSplitPane.VERTICAL_SPLIT, panelDesplazamientoEditor, panelDesplazamientoConsola);
-        panelDivisor.setDividerLocation(460);
-        panelDivisor.setDividerSize(5);
+        panelDivisor.setResizeWeight(0.7); 
+        panelDivisor.setOneTouchExpandable(true);  
+        panelDivisor.setContinuousLayout(true); 
+        panelDivisor.setDividerSize(8); // Un divisor un poco más grueso para que sea fácil de arrastrar
         panelDivisor.setBorder(BorderFactory.createEmptyBorder());
         panelDivisor.setBackground(COLOR_DIVISOR);
 
@@ -128,9 +169,8 @@ public class GoliteFrame extends JFrame {
         barraMenu.onSave(e -> guardarArchivo());
         barraMenu.onExit(e -> System.exit(0));
         barraMenu.onTokens(e -> abrirReporteHtml("Reporte_Tokens.html"));
-        barraMenu.onErrors(e -> { 
-            mostrarErrores(); 
-            abrirReporteHtml("Reporte_Errores.html");
+        barraMenu.onErrors(e -> { ; 
+            abrirReporteHtml("Reporte_Errors.html");
         });
         barraMenu.onAbout(e -> JOptionPane.showMessageDialog(
                 this,
@@ -139,8 +179,7 @@ public class GoliteFrame extends JFrame {
                 JOptionPane.INFORMATION_MESSAGE));
     }
 
-    // Orquesta las fases de análisis léxico, sintáctico y la ejecución del intérprete
-    private void ejecutar() {
+   private void ejecutar() {
         try {
             analizadorLexico = new Lexer(new BufferedReader(new StringReader(editorCodigo.getText())));
             rastreadorTokens = new TokenTrackerLexer(analizadorLexico);
@@ -149,32 +188,41 @@ public class GoliteFrame extends JFrame {
             java_cup.runtime.Symbol simboloRaiz = analizadorSintactico.parse();
             limpiarConsola();
 
-            // Consolidación de alertas léxicas y sintácticas para el reporte HTML
-            ArrayList<GoliteError> listaErrores = new ArrayList<>();
-            listaErrores.addAll(analizadorLexico.errors);
-            listaErrores.addAll(analizadorSintactico.errors);
+            // INICIALIZAMOS EL INTÉRPRETE SIEMPRE
+            interprete = new InterpreterVisitor();
 
-            ReportGenerator.generateTokenReport(rastreadorTokens.tokens, "Reporte_Tokens.html");
-            ReportGenerator.generateErrorReport(listaErrores, "Reporte_Errores.html");
-
-            // Validar si el análisis contiene fallas antes de pasar al Intérprete
-            if (!analizadorLexico.errors.isEmpty() || !analizadorSintactico.errors.isEmpty() || simboloRaiz == null || simboloRaiz.value == null) {
-                areaConsola.append("[COMPILACIÓN FALLIDA] Se detectaron errores en el código fuente.\n");
-                areaConsola.append("[INFORMACIÓN] Abre el menú 'Reportes' para examinar las tablas detalladas.\n");
-                return;
+            // SOLO EJECUTAMOS SI EL ÁRBOL EXISTE (simboloRaiz.value es el AST)
+            if (simboloRaiz != null && simboloRaiz.value != null) {
+                try {
+                    ASTNode nodoAst = (ASTNode) simboloRaiz.value;
+                    interprete.Visit(nodoAst);
+                } catch (BreakException e) {
+                    interprete.output += ">> [ERROR SEMÁNTICO]: sentencia break fuera de ciclo\n";
+                } catch (ContinueException e) {
+                    interprete.output += ">> [ERROR SEMÁNTICO]: sentencia continue fuera de ciclo\n";
+                } catch (Exception e) {
+                    if (e.getMessage() != null) {
+                        interprete.output += ">> [ERROR SEMÁNTICO O DE EJECUCIÓN]: " + e.getMessage() + "\n";
+                    }
+                }
+            } else {
+                areaConsola.append("[COMPILACIÓN] Árbol AST no generado completamente.\n");
             }
 
-            // Recuperación del nodo raíz e inicio del recorrido conceptual del AST
-            ASTNode nodoAst = (ASTNode) simboloRaiz.value;
-            InterpreterVisitor interprete = new InterpreterVisitor();
-            interprete.Visit(nodoAst);
+            // RECOLECCIÓN SEGURA
+            ArrayList<GoliteError> listaErrores = new ArrayList<>();
+            listaErrores.addAll(analizadorLexico.errors);
+            listaErrores.addAll(analizadorSintactico.erroresSintacticos);
+            listaErrores.addAll(interprete.erroresSemanticos);
+
+            ReportGenerator.generateTokenReport(rastreadorTokens.tokens, "Reporte_Tokens.html");
+            ReportGenerator.generateErrorReport(listaErrores, "Reporte_Errors.html");
 
             areaConsola.append(interprete.output);
-            areaConsola.append("\n\n[ÉXITO] Ejecución finalizada correctamente.");
+            areaConsola.append("\n\n[ÉXITO] Ejecución de fases finalizada.");
             
         } catch (Exception e) {
-            areaConsola.append("\n[ERROR FATAL EN TIEMPO DE EJECUCIÓN]: " + e.getMessage() + "\n");
-            e.printStackTrace();
+            areaConsola.append("\n[ERROR FATAL]: " + (e.getMessage() != null ? e.getMessage() : "Error desconocido") + "\n");
         }
         areaConsola.setCaretPosition(areaConsola.getDocument().getLength());
         editorCodigo.requestFocus();
@@ -225,26 +273,6 @@ public class GoliteFrame extends JFrame {
             } catch (Exception ex) {
                 JOptionPane.showMessageDialog(this, "Error al guardar el archivo: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
             }
-        }
-    }
-
-    // Vuelca la información de los búferes de error directo en la consola gráfica
-    private void mostrarErrores() {
-        limpiarConsola();
-        if (analizadorLexico == null || analizadorSintactico == null) {
-            areaConsola.append("[INFORMACIÓN] Búfer de ejecución vacío.\n");
-            return;
-        }
-
-        areaConsola.append("--- LOG DE ERRORES DETECTADOS ---\n\n");
-        areaConsola.append("[Errores Léxicos]:\n");
-        for (GoliteError error : analizadorLexico.errors) {
-            areaConsola.append(" -> " + error.toString() + "\n");
-        }
-
-        areaConsola.append("\n[Errores Sintácticos]:\n");
-        for (GoliteError error : analizadorSintactico.errors) {
-            areaConsola.append(" -> " + error.toString() + "\n");
         }
     }
 
