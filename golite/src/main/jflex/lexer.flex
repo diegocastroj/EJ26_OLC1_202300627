@@ -48,7 +48,9 @@ COMENTARIO_MULTI = "/*" [^*]* "*"+ ([^*/][^*]* "*"+)* "/"
     "strconv.ParseFloat" { return new Symbol(sym.PARSEFLOAT, yyline, yycolumn, yytext()); }
     "break"             { return new Symbol(sym.BREAK, yyline, yycolumn, yytext()); }
     "continue"          { return new Symbol(sym.CONTINUE, yyline, yycolumn, yytext()); }
+    "return"            { return new Symbol(sym.RETURN, yyline, yycolumn, yytext()); }
     "for"               { return new Symbol(sym.FOR, yyline, yycolumn, yytext()); }
+    "range"             { return new Symbol(sym.RANGE, yyline, yycolumn, yytext()); }
     "if"                { return new Symbol(sym.IF, yyline, yycolumn, yytext()); }
     "else"              { return new Symbol(sym.ELSE, yyline, yycolumn, yytext()); }
     "func"              { return new Symbol(sym.FUNC, yyline, yycolumn, yytext()); }
@@ -68,6 +70,10 @@ COMENTARIO_MULTI = "/*" [^*]* "*"+ ([^*/][^*]* "*"+)* "/"
     "rune"              { return new Symbol(sym.T_RUNE, yyline, yycolumn, yytext()); }
     
     "fmt.Println"       { return new Symbol(sym.IMPRIMIR, yyline, yycolumn, yytext()); }
+    "len"               { return new Symbol(sym.LEN, yyline, yycolumn, yytext()); }
+    "append"            { return new Symbol(sym.APPEND, yyline, yycolumn, yytext()); }
+    "slices.Index"      { return new Symbol(sym.SLICES_INDEX, yyline, yycolumn, yytext()); }
+    "strings.Join"      { return new Symbol(sym.STRINGS_JOIN, yyline, yycolumn, yytext()); }
 
     // Operadores y signos
     "==" { return new Symbol(sym.IGUAL, yyline, yycolumn, yytext()); }
@@ -97,6 +103,8 @@ COMENTARIO_MULTI = "/*" [^*]* "*"+ ([^*/][^*]* "*"+)* "/"
     ","  { return new Symbol(sym.COMA, yyline, yycolumn, yytext()); }
     "++" { return new Symbol(sym.INCREMENTO, yyline, yycolumn, yytext()); }
     "--" { return new Symbol(sym.DECREMENTO, yyline, yycolumn, yytext()); }
+    "["  { return new Symbol(sym.CORCHETE1, yyline, yycolumn, yytext()); }
+    "]"  { return new Symbol(sym.CORCHETE2, yyline, yycolumn, yytext()); }
 
     // Literales e IDs
     "'" [^'\\] "'"      { return new Symbol(sym.RUNE_LITERAL, yyline, yycolumn, yytext()); }

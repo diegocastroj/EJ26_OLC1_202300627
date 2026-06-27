@@ -197,14 +197,14 @@ public class InterpreterVisitor implements Visitor<ValueWrapper> {
                     0,
                     0
                 ));
+            } catch (com.olc1.ast.stm.ReturnException e) {
+                throw e; 
             } catch (Exception e) {
-                // Si la instrucción falla, la atrapamos, la guardamos y dejamos que el for pase a la siguiente
                 erroresSemanticos.add(new GoliteError(
                     "Semántico", 
                     e.getMessage(), 
-                    0, 0 // El error aparecerá en 0,0 a menos que el ASTNode exponga un método de getFila()
+                    0, 0 
                 ));
-                
             }
         }
         return defaultVoid;
@@ -573,5 +573,265 @@ public class InterpreterVisitor implements Visitor<ValueWrapper> {
     public ValueWrapper visit(com.olc1.ast.stm.CaseNode.Context ctx) {
         // Retornamos void porque la ejecución real la hace el SwitchNode arriba
         return defaultVoid; 
-    }   
+    }  
+    
+    @Override
+    public ValueWrapper visit(com.olc1.ast.stm.ForRangeNode.Context ctx) {
+        // 1. Evaluamos la expresión para obtener el Slice
+        ValueWrapper sliceWrapper = Visit(ctx.sliceExpr);
+        
+        // Verificamos que realmente sea un slice
+        if (!(sliceWrapper instanceof SliceValue slice)) {
+            erroresSemanticos.add(new GoliteError("Semántico", "El operador 'range' solo funciona con slices.", 0, 0));
+            return defaultVoid;
+        }
+        
+        // Extraemos la lista nativa de Java usando el método del Record
+        java.util.ArrayList<ValueWrapper> lista = slice.value();
+        
+        // 2. Preparamos el entorno para el ciclo
+        ambitos.add(new java.util.HashMap<>());
+        profundidadCiclos++;
+        
+        try {
+            // 3. Hacemos el recorrido nativo
+            for (int i = 0; i < lista.size(); i++) {
+                
+                // Sobrescribimos el índice y el valor en el entorno actual en cada vuelta
+                ambitos.get(ambitos.size() - 1).put(ctx.idIndice, new IntValue(i, 0, 0));
+                ambitos.get(ambitos.size() - 1).put(ctx.idValor, lista.get(i));
+                
+                try {
+                    // Ejecutamos las instrucciones dentro del for
+                    Visit(ctx.instrucciones);
+                } catch (BreakException ex) {
+                    break; // Rompe el ciclo actual
+                } catch (ContinueException ex) {
+                    // No hace nada, simplemente deja que el for pase a la siguiente iteración (i++)
+                }
+            }
+        } finally {
+            // Limpiamos el entorno al terminar el ciclo completo
+            profundidadCiclos--;
+            ambitos.remove(ambitos.size() - 1);
+        }
+        
+        return defaultVoid;
+    }
+
+    @Override
+    public ValueWrapper visit(com.olc1.ast.exp.SliceNode.Context ctx) {
+        // Creamos la lista nativa de Java
+        java.util.ArrayList<ValueWrapper> lista = new java.util.ArrayList<>();
+        
+        // Llenamos la lista evaluando cada expresión
+        if (ctx.expresiones != null) {
+            for (ASTNode exp : ctx.expresiones) {
+                lista.add(Visit(exp));
+            }
+        }
+        
+        return new SliceValue(lista, ctx.tipo, 0, 0); 
+    }
+
+    @Override
+    public ValueWrapper visit(com.olc1.ast.exp.LenNode.Context ctx) {
+        ValueWrapper val = Visit(ctx.expresion);
+        
+        if (val instanceof SliceValue slice) {
+            return new IntValue(slice.value().size(), 0, 0);
+        }
+        
+        if (val instanceof StringValue str) {
+            return new IntValue(str.value().length(), 0, 0);
+        }
+        
+        erroresSemanticos.add(new GoliteError("Semántico", "La funcion len() requiere un slice o string, se recibio: " + val.getTypeName(), 0, 0));
+        return new IntValue(0, 0, 0); 
+    }
+
+    @Override
+    public ValueWrapper visit(com.olc1.ast.exp.AccessNode.Context ctx) {
+        ValueWrapper arrVal = Visit(ctx.arreglo);
+        
+        ValueWrapper idxVal = Visit(ctx.indice);
+        
+        if (arrVal instanceof SliceValue slice && idxVal instanceof IntValue indice) {
+            java.util.ArrayList<ValueWrapper> lista = slice.value();
+            int i = indice.value();
+            
+            if (i >= 0 && i < lista.size()) {
+                return lista.get(i);
+            } else {
+                erroresSemanticos.add(new GoliteError("Semántico", "Indice fuera de rango: " + i + " con longitud " + lista.size(), 0, 0));
+                return new VoidValue(0,0);
+            }
+        }
+        
+        erroresSemanticos.add(new GoliteError("Semántico", "No se puede acceder al indice de un tipo no-slice.", 0, 0));
+        return new VoidValue(0,0);
+    }
+
+    @Override
+    public ValueWrapper visit(com.olc1.ast.exp.AppendNode.Context ctx) {
+        ValueWrapper arrVal = Visit(ctx.arreglo);
+        
+        ValueWrapper nuevoValor = Visit(ctx.valor);
+        
+        if (arrVal instanceof SliceValue slice) {
+            java.util.ArrayList<ValueWrapper> nuevaLista = new java.util.ArrayList<>(slice.value());
+            
+            nuevaLista.add(nuevoValor);
+            
+            return new SliceValue(nuevaLista, slice.innerType(), 0, 0);
+        }
+        
+        erroresSemanticos.add(new GoliteError("Semántico", "La funcion append requiere un slice como primer parametro.", 0, 0));
+        return new VoidValue(0,0);
+    }
+
+    @Override
+    public ValueWrapper visit(com.olc1.ast.exp.SlicesIndexNode.Context ctx) {
+        ValueWrapper arrVal = Visit(ctx.arreglo);
+        ValueWrapper valorBuscado = Visit(ctx.valor);
+
+        if (arrVal instanceof SliceValue slice) {
+            java.util.ArrayList<ValueWrapper> lista = slice.value();
+            
+            String strBuscado = (valorBuscado instanceof StringValue s) ? s.value() : valorBuscado.toString();
+            
+            for (int i = 0; i < lista.size(); i++) {
+                ValueWrapper elemento = lista.get(i);
+                
+                String strElemento = (elemento instanceof StringValue s) ? s.value() : elemento.toString();
+                
+                if (strElemento.equals(strBuscado)) {
+                    return new IntValue(i, 0, 0); // Retorna el índice si lo encuentra
+                }
+            }
+            return new IntValue(-1, 0, 0); // Retorna -1 si no existe
+        }
+        
+        erroresSemanticos.add(new GoliteError("Semántico", "slices.Index requiere un slice como primer parametro.", 0, 0));
+        return new IntValue(-1, 0, 0);
+    }
+
+    @Override
+    public ValueWrapper visit(com.olc1.ast.exp.StringsJoinNode.Context ctx) {
+        ValueWrapper arrVal = Visit(ctx.arreglo);
+        ValueWrapper delimVal = Visit(ctx.delimitador);
+
+        if (arrVal instanceof SliceValue slice && delimVal instanceof StringValue delimitador) {
+            java.util.ArrayList<ValueWrapper> lista = slice.value();
+            StringBuilder resultado = new StringBuilder();
+            
+            for (int i = 0; i < lista.size(); i++) {
+                // Si el valor es StringValue, extraemos su texto sin las comillas internas
+                String strOut = (lista.get(i) instanceof StringValue s) ? s.value() : lista.get(i).toString();
+                resultado.append(strOut);
+                
+                // Agregamos el delimitador si no es el último elemento
+                if (i < lista.size() - 1) {
+                    resultado.append(delimitador.value());
+                }
+            }
+            return new StringValue(resultado.toString(), 0, 0);
+        }
+        erroresSemanticos.add(new GoliteError("Semántico", "strings.Join requiere un slice y un delimitador string.", 0, 0));
+        return new StringValue("", 0, 0);
+    }
+
+    @Override
+    public ValueWrapper visit(com.olc1.ast.stm.ReturnNode.Context ctx) {
+        ValueWrapper valorARetornar = defaultVoid; 
+        
+        if (ctx.expresion != null) {
+            valorARetornar = Visit(ctx.expresion); 
+        }
+        
+        throw new ReturnException(valorARetornar); 
+    }
+
+    @Override
+    public ValueWrapper visit(com.olc1.ast.stm.SliceModifyNode.Context ctx) {
+        // 1. Obtenemos el slice de la memoria
+        ValueWrapper variable = obtenerVariable(ctx.id);
+        
+        if (variable == null) {
+            erroresSemanticos.add(new GoliteError("Semántico", "La variable '" + ctx.id + "' no existe.", 0, 0));
+            return defaultVoid;
+        }
+
+        ValueWrapper idxVal = Visit(ctx.indice);
+        ValueWrapper nuevoValor = Visit(ctx.valor);
+
+        if (variable instanceof SliceValue slice && idxVal instanceof IntValue indice) {
+            java.util.ArrayList<ValueWrapper> lista = slice.value();
+            int i = indice.value();
+
+            if (i >= 0 && i < lista.size()) {
+                lista.set(i, nuevoValor); 
+            } else {
+                erroresSemanticos.add(new GoliteError("Semántico", "Indice fuera de rango para el slice '" + ctx.id + "'.", 0, 0));
+            }
+        } else {
+            erroresSemanticos.add(new GoliteError("Semántico", "No se puede modificar por indice un tipo no-slice.", 0, 0));
+        }
+
+        return defaultVoid;
+    }
+
+    @Override
+    public ValueWrapper visit(com.olc1.ast.stm.FuncDeclNode.Context ctx) {
+        if (existeEnAmbitoActual(ctx.id)) {
+            erroresSemanticos.add(new GoliteError("Semántico", "El identificador '" + ctx.id + "' ya esta en uso.", 0, 0));
+            return defaultVoid;
+        }
+
+        declararVariable(ctx.id, new FunctionValue(ctx, 0, 0));
+        
+        return defaultVoid;
+    }
+
+    @Override
+    public ValueWrapper visit(com.olc1.ast.exp.FuncCallNode.Context ctx) {
+        ValueWrapper variable = obtenerVariable(ctx.id);
+        
+        if (!(variable instanceof FunctionValue funcionWrapper)) {
+            erroresSemanticos.add(new GoliteError("Semántico", "El identificador '" + ctx.id + "' no es una funcion declarada.", 0, 0));
+            return defaultVoid;
+        }
+
+        com.olc1.ast.stm.FuncDeclNode.Context funcion = funcionWrapper.funcion();
+
+        if (ctx.argumentos.size() != funcion.parametros.size()) {
+            erroresSemanticos.add(new GoliteError("Semántico", "La funcion '" + ctx.id + "' esperaba " + funcion.parametros.size() + " argumentos, pero recibio " + ctx.argumentos.size(), 0, 0));
+            return defaultVoid;
+        }
+
+        java.util.ArrayList<ValueWrapper> valoresEvaluados = new java.util.ArrayList<>();
+        for (ASTNode arg : ctx.argumentos) {
+            valoresEvaluados.add(Visit(arg));
+        }
+
+        ambitos.add(new java.util.HashMap<>());
+
+        try {
+            for (int i = 0; i < funcion.parametros.size(); i++) {
+                com.olc1.ast.stm.Parametro param = funcion.parametros.get(i);
+                declararVariable(param.id(), valoresEvaluados.get(i));
+            }
+
+            if (funcion.cuerpo != null) {
+                Visit(funcion.cuerpo);
+            }
+            
+        } catch (com.olc1.ast.stm.ReturnException e) {
+            return e.value;
+        } finally {
+            ambitos.remove(ambitos.size() - 1);
+        }
+
+        return defaultVoid;
+    }
 }

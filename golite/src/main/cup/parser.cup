@@ -6,9 +6,6 @@
     import com.olc1.ast.exp.*;
     import com.olc1.ast.stm.*;
 
-    /* =====================================================================
-    ---> CAPTURA Y LOG DE ERRORES SINTÁCTICOS (MODO PÁNICO) <---
-    ===================================================================== */
     parser code
     {:
         Lexer s;
@@ -72,7 +69,12 @@
     terminal DECLARAR_ASIGNAR;
     terminal COMA;
     terminal INCREMENTO, DECREMENTO;
-    terminal SWITCH, CASE, DEFAULT, DOS_PUNTOS;
+    terminal SWITCH, CASE, DEFAULT, DOS_PUNTOS, RANGE;
+    terminal CORCHETE1, CORCHETE2;
+    terminal LEN;
+    terminal APPEND;
+    terminal SLICES_INDEX, STRINGS_JOIN;
+    terminal RETURN;
 
     nonterminal ASTNode INICIO;
     nonterminal ASTNode INSTRUCCIONES, INSTRUCCION;
@@ -80,6 +82,8 @@
     nonterminal OPCIONAL_PTCOMA;
     nonterminal java.util.ArrayList<ASTNode> LISTA_EXPRESIONES;
     nonterminal java.util.ArrayList<ASTNode> LISTA_CASES;
+    nonterminal String TIPO_DATO;
+    nonterminal java.util.ArrayList<com.olc1.ast.stm.Parametro> LISTA_PARAMETROS;
 
     precedence left OR;
     precedence left AND;
@@ -91,8 +95,21 @@
 
     // Gramatica
 
-    INICIO ::= FUNC MAIN PAR1 PAR2 LLAVE1 INSTRUCCIONES:ins LLAVE2 {: RESULT = ins; :}
-            | INSTRUCCIONES:ins                              {: RESULT = ins; :}
+    INICIO ::= FUNC MAIN PAR1 PAR2 LLAVE1 INSTRUCCIONES:ins LLAVE2
+                {: RESULT = ins; :}
+                
+            // === MÚLTIPLES FUNCIONES ===
+            | INSTRUCCIONES:globales FUNC MAIN PAR1 PAR2 LLAVE1 INSTRUCCIONES:mainInst LLAVE2
+                {:
+                    com.olc1.ast.stm.BlockNode bloqueMain = new com.olc1.ast.stm.BlockNode(mainInst);
+                    
+                    ((com.olc1.ast.stm.Statments)globales).add(bloqueMain);
+                    
+                    RESULT = globales;
+                :}
+                
+            | INSTRUCCIONES:ins
+                {: RESULT = ins; :}
     ;
 
     INSTRUCCIONES ::= INSTRUCCIONES:list INSTRUCCION:inst 
@@ -126,7 +143,28 @@
                         :}
     ;
 
-    
+        // === REGLAS PARA PARÁMETROS DE FUNCIONES ===
+    LISTA_PARAMETROS ::= LISTA_PARAMETROS:list COMA ID:id TIPO_DATO:t
+                        {: 
+                            list.add(new com.olc1.ast.stm.Parametro(id, t));
+                            RESULT = list; 
+                        :}
+                    | ID:id TIPO_DATO:t
+                        {: 
+                            java.util.ArrayList<com.olc1.ast.stm.Parametro> list = new java.util.ArrayList<>();
+                            list.add(new com.olc1.ast.stm.Parametro(id, t)); 
+                            RESULT = list; 
+                        :}
+                    | /* vacío para funciones sin parámetros */
+                        {: RESULT = new java.util.ArrayList<>(); :}
+    ;
+
+    TIPO_DATO ::= T_INT     {: RESULT = "int"; :}
+            | T_FLOAT64 {: RESULT = "float64"; :}
+            | T_STRING  {: RESULT = "string"; :}
+            | T_BOOL    {: RESULT = "bool"; :}
+            | T_RUNE    {: RESULT = "rune"; :}
+    ;
 
     INSTRUCCION ::= IMPRIMIR PAR1 LISTA_EXPRESIONES:list PAR2 OPCIONAL_PTCOMA
                     {: RESULT = new Imprimir(list); :}
@@ -147,11 +185,8 @@
                 
                 | IF EXPRESION:cond LLAVE1 INSTRUCCIONES:cuerpo LLAVE2 ELSE INSTRUCCION:instElse
                     {: 
-                        // Esta regla general absorbe tanto un "else if" como un "else { ... }"
-                        // debido a que los bloques entre llaves ya se consideran una INSTRUCCION.
                         RESULT = new IfNode(cond, cuerpo, instElse); 
                     :}
-
 
                 | SWITCH EXPRESION:e LLAVE1 LISTA_CASES:lc LLAVE2 
                     {: RESULT = new SwitchNode(e, lc); :}
@@ -219,6 +254,30 @@
                         ASTNode incNode  = new Assign(idInc, new Sub(new VarRef(idInc, idIncleft, idIncright), eInc), idIncleft, idIncright);
                         RESULT = new com.olc1.ast.stm.ForNode(initNode, cond, incNode, cuerpo); 
                     :}
+
+                // === 8. FOR RANGE PARA SLICES ===
+                | FOR ID:idIndice COMA ID:idValor DECLARAR_ASIGNAR RANGE EXPRESION:sliceExpr LLAVE1 INSTRUCCIONES:cuerpo LLAVE2
+                  {: 
+                      RESULT = new com.olc1.ast.stm.ForRangeNode(idIndice, idValor, sliceExpr, cuerpo); 
+                  :}
+                // === MODIFICACIÓN DE UN ELEMENTO EN SLICE ===
+                | ID:id CORCHETE1 EXPRESION:idx CORCHETE2 ASIGNAR EXPRESION:val OPCIONAL_PTCOMA
+                    {: RESULT = new com.olc1.ast.stm.SliceModifyNode(id, idx, val); :}
+                
+                // === SENTENCIA RETURN ===
+                | RETURN EXPRESION:e OPCIONAL_PTCOMA
+                    {: RESULT = new com.olc1.ast.stm.ReturnNode(e); :}
+                | RETURN OPCIONAL_PTCOMA
+                    {: RESULT = new com.olc1.ast.stm.ReturnNode(null); :}
+
+                // === DECLARACIÓN DE FUNCIONES ===
+                | FUNC ID:id PAR1 LISTA_PARAMETROS:params PAR2 LLAVE1 INSTRUCCIONES:cuerpo LLAVE2
+                    {: RESULT = new com.olc1.ast.stm.FuncDeclNode(id, params, cuerpo); :}
+                
+                // Variante por si la función no tiene instrucciones adentro
+                | FUNC ID:id PAR1 LISTA_PARAMETROS:params PAR2 LLAVE1 LLAVE2
+                    {: RESULT = new com.olc1.ast.stm.FuncDeclNode(id, params, null); :}
+                
 
                 | BREAK OPCIONAL_PTCOMA       {: RESULT = new com.olc1.ast.stm.BreakNode(); :}
                 | CONTINUE OPCIONAL_PTCOMA    {: RESULT = new com.olc1.ast.stm.ContinueNode(); :}
@@ -292,6 +351,13 @@
                         ASTNode resta = new Sub(new VarRef(id, idleft, idright), new Integers(1, idleft, idright));
                         RESULT = new Assign(id, resta, idleft, idright); 
                     :}
+
+                // === LLAMADA A FUNCIÓN COMO INSTRUCCIÓN INDEPENDIENTE ===
+                | ID:id PAR1 LISTA_EXPRESIONES:args PAR2 OPCIONAL_PTCOMA
+                    {: RESULT = new com.olc1.ast.exp.FuncCallNode(id, args); :}
+                | ID:id PAR1 PAR2 OPCIONAL_PTCOMA
+                    {: RESULT = new com.olc1.ast.exp.FuncCallNode(id, new java.util.ArrayList<>()); :}
+
     ;
 
 
@@ -341,4 +407,30 @@
 
                 // === FUNCION EMBEBIDA DE TIPO ===
                 | REFLECT:r PAR1 EXPRESION:e PAR2       {: RESULT = new com.olc1.ast.exp.ReflectNode(e, rleft, rright); :}
+
+                // === CREACIÓN DE SLICES ===
+                | CORCHETE1 CORCHETE2 TIPO_DATO:t LLAVE1 LISTA_EXPRESIONES:list LLAVE2
+                    {: RESULT = new com.olc1.ast.exp.SliceNode(t, list); :}
+                | CORCHETE1 CORCHETE2 TIPO_DATO:t LLAVE1 LLAVE2
+                    {: RESULT = new com.olc1.ast.exp.SliceNode(t, new java.util.ArrayList<>()); :}
+                // === FUNCIÓN LEN ===
+                | LEN PAR1 EXPRESION:e PAR2
+                    {: RESULT = new com.olc1.ast.exp.LenNode(e); :}
+                // === ACCESO A ELEMENTO DE UN SLICE (ej. numeros[0]) ===
+                | EXPRESION:arr CORCHETE1 EXPRESION:idx CORCHETE2
+                    {: RESULT = new com.olc1.ast.exp.AccessNode(arr, idx); :}
+                // === FUNCIÓN APPEND ===
+                | APPEND PAR1 EXPRESION:arr COMA EXPRESION:val PAR2
+                   {: RESULT = new com.olc1.ast.exp.AppendNode(arr, val); :}
+                // === FUNCIONES DE SLICES Y STRINGS ===
+                | SLICES_INDEX PAR1 EXPRESION:arr COMA EXPRESION:val PAR2
+                 {: RESULT = new com.olc1.ast.exp.SlicesIndexNode(arr, val); :}
+                | STRINGS_JOIN PAR1 EXPRESION:arr COMA EXPRESION:delim PAR2
+                 {: RESULT = new com.olc1.ast.exp.StringsJoinNode(arr, delim); :}
+
+                 // === LLAMADA A FUNCIÓN COMO EXPRESIÓN (EJ. x = sumar(1,1)) ===
+                | ID:id PAR1 LISTA_EXPRESIONES:args PAR2
+                    {: RESULT = new com.olc1.ast.exp.FuncCallNode(id, args); :}
+                | ID:id PAR1 PAR2
+                    {: RESULT = new com.olc1.ast.exp.FuncCallNode(id, new java.util.ArrayList<>()); :}
     ;

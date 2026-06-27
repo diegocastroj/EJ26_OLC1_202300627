@@ -35,4 +35,16 @@ public interface Visitor<T> {
     T visit(com.olc1.ast.exp.RuneLiteral.Context ctx);
     T visit(com.olc1.ast.stm.SwitchNode.Context ctx);
     T visit(com.olc1.ast.stm.CaseNode.Context ctx);
+    T visit(com.olc1.ast.stm.ForRangeNode.Context ctx);
+    T visit(com.olc1.ast.exp.SliceNode.Context ctx);
+    T visit(com.olc1.ast.exp.LenNode.Context ctx);
+    T visit(com.olc1.ast.exp.AccessNode.Context ctx);
+    T visit(com.olc1.ast.exp.AppendNode.Context ctx);
+    T visit(com.olc1.ast.exp.SlicesIndexNode.Context ctx);
+    T visit(com.olc1.ast.exp.StringsJoinNode.Context ctx);
+    T visit(com.olc1.ast.stm.ReturnNode.Context ctx);
+    T visit(com.olc1.ast.stm.SliceModifyNode.Context ctx);
+    T visit(com.olc1.ast.stm.FuncDeclNode.Context ctx);
+    T visit(com.olc1.ast.exp.FuncCallNode.Context ctx);
+    
 }
