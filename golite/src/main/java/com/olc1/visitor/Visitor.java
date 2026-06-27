@@ -46,5 +46,13 @@ public interface Visitor<T> {
     T visit(com.olc1.ast.stm.SliceModifyNode.Context ctx);
     T visit(com.olc1.ast.stm.FuncDeclNode.Context ctx);
     T visit(com.olc1.ast.exp.FuncCallNode.Context ctx);
-    
+    T visit(com.olc1.ast.stm.StructDefNode.Context ctx);
+    T visit(com.olc1.ast.exp.StructCreationNode.Context ctx);
+    T visit(com.olc1.ast.exp.StructAccessNode.Context ctx);
+    T visit(com.olc1.ast.stm.StructModifyNode.Context ctx);
+    T visit(com.olc1.ast.exp.NamedStructLiteralNode.Context ctx);
+    T visit(com.olc1.ast.stm.CustomTypeVarDeclNode.Context ctx);
+    T visit(com.olc1.ast.stm.EmptySliceDeclNode.Context ctx);
+    T visit(com.olc1.ast.exp.NamedStructCreationNode.Context ctx);
+    T visit(com.olc1.ast.exp.MethodCallNode.Context ctx);
 }

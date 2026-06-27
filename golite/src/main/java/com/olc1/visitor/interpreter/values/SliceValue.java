@@ -7,7 +7,7 @@ public record SliceValue(ArrayList<ValueWrapper> value, String innerType, int li
     
     @Override
     public String getTypeName() {
-        return "slice_" + innerType;
+        return "[]" + innerType; 
     }
 
     @Override

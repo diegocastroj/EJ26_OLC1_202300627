@@ -61,6 +61,7 @@ COMENTARIO_MULTI = "/*" [^*]* "*"+ ([^*/][^*]* "*"+)* "/"
     "switch"            { return new Symbol(sym.SWITCH, yyline, yycolumn, yytext()); }
     "case"              { return new Symbol(sym.CASE, yyline, yycolumn, yytext()); }
     "default"           { return new Symbol(sym.DEFAULT, yyline, yycolumn, yytext()); }
+    "struct"            { return new Symbol(sym.STRUCT, yyline, yycolumn, yytext()); }
 
     // Tipos
     "int"               { return new Symbol(sym.T_INT, yyline, yycolumn, yytext()); }
@@ -105,6 +106,7 @@ COMENTARIO_MULTI = "/*" [^*]* "*"+ ([^*/][^*]* "*"+)* "/"
     "--" { return new Symbol(sym.DECREMENTO, yyline, yycolumn, yytext()); }
     "["  { return new Symbol(sym.CORCHETE1, yyline, yycolumn, yytext()); }
     "]"  { return new Symbol(sym.CORCHETE2, yyline, yycolumn, yytext()); }
+    "."  { return new Symbol(sym.PUNTO, yyline, yycolumn, yytext()); }
 
     // Literales e IDs
     "'" [^'\\] "'"      { return new Symbol(sym.RUNE_LITERAL, yyline, yycolumn, yytext()); }

@@ -444,11 +444,14 @@ public class InterpreterVisitor implements Visitor<ValueWrapper> {
     public ValueWrapper visit(com.olc1.ast.exp.ReflectNode.Context ctx) {
         ValueWrapper val = Visit(ctx.expression());
         String typeName = "unknown";
+        
         if (val instanceof IntValue) typeName = "int";
         else if (val instanceof DecimalValue) typeName = "float64";
         else if (val instanceof StringValue) typeName = "string";
         else if (val instanceof BoolValue) typeName = "bool";
         else if (val instanceof NullValue) typeName = "null";
+        else if (val instanceof com.olc1.visitor.interpreter.values.StructValue structVal) typeName = structVal.getTypeName();
+        else if (val instanceof com.olc1.visitor.interpreter.values.SliceValue sliceVal) typeName = sliceVal.getTypeName();
         
         return new StringValue(typeName, ctx.line(), ctx.column());
     }
@@ -546,6 +549,7 @@ public class InterpreterVisitor implements Visitor<ValueWrapper> {
 
     @Override
     public ValueWrapper visit(com.olc1.ast.stm.SwitchNode.Context ctx) {
+        
         ValueWrapper valorSwitch = Visit(ctx.expression);
         boolean ejecutado = false;
 
@@ -783,9 +787,25 @@ public class InterpreterVisitor implements Visitor<ValueWrapper> {
 
     @Override
     public ValueWrapper visit(com.olc1.ast.stm.FuncDeclNode.Context ctx) {
+
+        if (ambitos.size() > 1) {
+            erroresSemanticos.add(new GoliteError("Semántico", "Las funciones solo pueden declararse en el ambito global.", 0, 0));
+            return defaultVoid;
+        }
+
         if (existeEnAmbitoActual(ctx.id)) {
             erroresSemanticos.add(new GoliteError("Semántico", "El identificador '" + ctx.id + "' ya esta en uso.", 0, 0));
             return defaultVoid;
+        }
+
+        java.util.HashSet<String> nombresParams = new java.util.HashSet<>();
+        if (ctx.parametros != null) {
+            for (com.olc1.ast.stm.Parametro param : ctx.parametros) {
+                if (!nombresParams.add(param.id())) {
+                    erroresSemanticos.add(new GoliteError("Semántico", "El parametro '" + param.id() + "' esta duplicado en la funcion '" + ctx.id + "'.", 0, 0));
+                    return defaultVoid;
+                }
+            }
         }
 
         declararVariable(ctx.id, new FunctionValue(ctx, 0, 0));
@@ -827,6 +847,21 @@ public class InterpreterVisitor implements Visitor<ValueWrapper> {
             }
             
         } catch (com.olc1.ast.stm.ReturnException e) {
+
+            String tipoEsperado = funcion.tipoRetorno;
+            String tipoObtenido = e.value.getTypeName();
+            
+            // Si la función era void pero retornó algo
+            if (tipoEsperado.equals("void") && !(e.value instanceof VoidValue)) {
+                erroresSemanticos.add(new GoliteError("Semántico", "La funcion '" + ctx.id + "' no debe retornar valores.", 0, 0));
+                return defaultVoid;
+            }
+            
+            // Si la función tenía tipo, validar que coincidan (con una pequeña tolerancia para los nulos)
+            if (!tipoEsperado.equals("void") && !tipoEsperado.equals(tipoObtenido) && !(e.value instanceof NullValue)) {
+                erroresSemanticos.add(new GoliteError("Semántico", "La funcion '" + ctx.id + "' esperaba retornar '" + tipoEsperado + "' pero retorno '" + tipoObtenido + "'.", 0, 0));
+                return defaultVoid;
+            }
             return e.value;
         } finally {
             ambitos.remove(ambitos.size() - 1);
@@ -834,4 +869,229 @@ public class InterpreterVisitor implements Visitor<ValueWrapper> {
 
         return defaultVoid;
     }
+
+    @Override
+    public ValueWrapper visit(com.olc1.ast.stm.StructDefNode.Context ctx) {
+        if (ambitos.size() > 1) {
+            erroresSemanticos.add(new GoliteError("Semántico", "Los structs solo pueden ser declarados en el ambito global.", 0, 0));
+            return defaultVoid;
+        }
+
+        if (existeEnAmbitoActual(ctx.id)) {
+            erroresSemanticos.add(new GoliteError("Semántico", "El nombre de struct '" + ctx.id + "' ya esta en uso.", 0, 0));
+            return defaultVoid;
+        }
+
+        declararVariable(ctx.id, new StructBlueprint(ctx, 0, 0));
+        
+        return defaultVoid;
+    }
+
+    @Override
+    public ValueWrapper visit(com.olc1.ast.exp.StructCreationNode.Context ctx) {
+        ValueWrapper moldeVal = obtenerVariable(ctx.id);
+        
+        if (!(moldeVal instanceof StructBlueprint molde)) {
+            erroresSemanticos.add(new GoliteError("Semántico", "El struct '" + ctx.id + "' no ha sido definido.", 0, 0));
+            return new VoidValue(0,0);
+        }
+
+        com.olc1.ast.stm.StructDefNode.Context def = molde.definicion();
+
+        if (def.atributos.size() != ctx.valores.size()) {
+            erroresSemanticos.add(new GoliteError("Semántico", "El struct '" + ctx.id + "' espera " + def.atributos.size() + " valores, pero recibio " + ctx.valores.size(), 0, 0));
+            return new VoidValue(0,0);
+        }
+
+        java.util.HashMap<String, ValueWrapper> propiedades = new java.util.HashMap<>();
+        
+        for (int i = 0; i < def.atributos.size(); i++) {
+            com.olc1.ast.stm.Atributo attr = def.atributos.get(i);
+            ValueWrapper valorEvaluado = Visit(ctx.valores.get(i));
+            
+            propiedades.put(attr.id(), valorEvaluado);
+        }
+
+        return new StructValue(ctx.id, propiedades, 0, 0);
+    }
+
+    @Override
+    public ValueWrapper visit(com.olc1.ast.exp.StructAccessNode.Context ctx) {
+        ValueWrapper objVal = Visit(ctx.objeto);
+
+        if (objVal instanceof StructValue structObj) {
+            if (structObj.propiedades().containsKey(ctx.atributo)) {
+                return structObj.propiedades().get(ctx.atributo);
+            } else {
+                erroresSemanticos.add(new GoliteError("Semántico", "El struct '" + structObj.tipoStruct() + "' no tiene el atributo '" + ctx.atributo + "'.", 0, 0));
+                return new VoidValue(0,0);
+            }
+        }
+        
+        erroresSemanticos.add(new GoliteError("Semántico", "No se puede usar el operador punto en un tipo no-struct.", 0, 0));
+        return new VoidValue(0,0);
+    }
+
+    @Override
+    public ValueWrapper visit(com.olc1.ast.stm.StructModifyNode.Context ctx) {
+        ValueWrapper variable = obtenerVariable(ctx.idVariable);
+
+        if (variable == null) {
+            erroresSemanticos.add(new GoliteError("Semántico", "La variable '" + ctx.idVariable + "' no existe.", 0, 0));
+            return defaultVoid;
+        }
+
+        if (variable instanceof StructValue structObj) {
+            if (structObj.propiedades().containsKey(ctx.atributo)) {
+                ValueWrapper valorEvaluado = Visit(ctx.nuevoValor);
+                
+                structObj.propiedades().put(ctx.atributo, valorEvaluado);
+            } else {
+                erroresSemanticos.add(new GoliteError("Semántico", "El struct '" + structObj.tipoStruct() + "' no tiene el atributo '" + ctx.atributo + "'.", 0, 0));
+            }
+        } else {
+            erroresSemanticos.add(new GoliteError("Semántico", "La variable '" + ctx.idVariable + "' no es un struct.", 0, 0));
+        }
+
+        return defaultVoid;
+    }
+
+    @Override
+    public ValueWrapper visit(com.olc1.ast.exp.NamedStructLiteralNode.Context ctx) {
+        // El nodo literal solo sirve de contenedor de ASTs, no necesita evaluarse solo
+        return defaultVoid;
+    }
+
+    @Override
+    public ValueWrapper visit(com.olc1.ast.stm.CustomTypeVarDeclNode.Context ctx) {
+        if (existeEnAmbitoActual(ctx.id)) {
+            erroresSemanticos.add(new GoliteError("Semántico", "La variable '" + ctx.id + "' ya esta definida.", 0, 0));
+            return defaultVoid;
+        }
+
+        ValueWrapper moldeVal = obtenerVariable(ctx.tipo);
+        if (!(moldeVal instanceof StructBlueprint molde)) {
+            erroresSemanticos.add(new GoliteError("Semántico", "El tipo de struct '" + ctx.tipo + "' no esta definido.", 0, 0));
+            return defaultVoid;
+        }
+
+        com.olc1.ast.stm.StructDefNode.Context def = molde.definicion();
+        java.util.HashMap<String, ValueWrapper> propiedades = new java.util.HashMap<>();
+
+        if (ctx.expresion instanceof com.olc1.ast.exp.NamedStructLiteralNode literal) {
+            
+            for (java.util.Map.Entry<String, ASTNode> entry : literal.valores.entrySet()) {
+                String campo = entry.getKey();
+                
+                boolean existeCampo = def.atributos.stream().anyMatch(a -> a.id().equals(campo));
+                if (!existeCampo) {
+                    erroresSemanticos.add(new GoliteError("Semántico", "El struct '" + ctx.tipo + "' no tiene un atributo '" + campo + "'.", 0, 0));
+                    continue;
+                }
+                
+                propiedades.put(campo, Visit(entry.getValue()));
+            }
+        } else {
+            ValueWrapper val = Visit(ctx.expresion);
+            if (val instanceof StructValue sv && sv.tipoStruct().equals(ctx.tipo)) {
+                propiedades = new java.util.HashMap<>(sv.propiedades());
+            } else {
+                erroresSemanticos.add(new GoliteError("Semántico", "Tipo de asignacion no valida para el struct '" + ctx.tipo + "'.", 0, 0));
+                return defaultVoid;
+            }
+        }
+
+        declararVariable(ctx.id, new StructValue(ctx.tipo, propiedades, 0, 0));
+        return defaultVoid;
+    }
+
+    @Override
+    public ValueWrapper visit(com.olc1.ast.stm.EmptySliceDeclNode.Context ctx) {
+        // Validamos que la variable no exista ya en el entorno actual
+        if (existeEnAmbitoActual(ctx.id)) {
+            erroresSemanticos.add(new GoliteError("Semántico", "La variable '" + ctx.id + "' ya esta declarada.", 0, 0));
+            return defaultVoid;
+        }
+
+        java.util.ArrayList<ValueWrapper> listaVacia = new java.util.ArrayList<>();
+
+        declararVariable(ctx.id, new SliceValue(listaVacia, ctx.tipoBase, 0, 0));
+
+        return defaultVoid;
+    }
+
+    @Override
+    public ValueWrapper visit(com.olc1.ast.exp.NamedStructCreationNode.Context ctx) {
+        ValueWrapper moldeVal = obtenerVariable(ctx.id);
+        
+        if (!(moldeVal instanceof StructBlueprint molde)) {
+            erroresSemanticos.add(new GoliteError("Semántico", "El struct '" + ctx.id + "' no esta definido.", 0, 0));
+            return defaultVoid;
+        }
+
+        com.olc1.ast.stm.StructDefNode.Context def = molde.definicion();
+        java.util.HashMap<String, ValueWrapper> propiedades = new java.util.HashMap<>();
+        
+        for (java.util.Map.Entry<String, ASTNode> entry : ctx.valores.entrySet()) {
+            String campo = entry.getKey();
+            
+            boolean existeCampo = def.atributos.stream().anyMatch(a -> a.id().equals(campo));
+            if (!existeCampo) {
+                erroresSemanticos.add(new GoliteError("Semántico", "El struct '" + ctx.id + "' no tiene un atributo '" + campo + "'.", 0, 0));
+                continue;
+            }
+            
+            propiedades.put(campo, Visit(entry.getValue()));
+        }
+
+        return new StructValue(ctx.id, propiedades, 0, 0);
+    }
+
+    @Override
+    public ValueWrapper visit(com.olc1.ast.exp.MethodCallNode.Context ctx) {
+        // 1. Evaluamos al dueño del método (ej. miInstancia)
+        ValueWrapper targetObj = Visit(ctx.node.target);
+        
+        // 2. Reconstruimos el nombre mangleado
+        String nombreMangleado = targetObj.getTypeName() + "_" + ctx.node.methodName;
+        
+        ValueWrapper funcMemoria = obtenerVariable(nombreMangleado);
+        if (!(funcMemoria instanceof FunctionValue funcion)) {
+            erroresSemanticos.add(new GoliteError("Semántico", "El tipo '" + targetObj.getTypeName() + "' no tiene un metodo '" + ctx.node.methodName + "'.", 0, 0));
+            return defaultVoid;
+        }
+
+        // 3. Abrimos el entorno
+        java.util.Map<String, ValueWrapper> nuevoAmbito = new java.util.HashMap<>();
+        ambitos.add(nuevoAmbito);
+
+        // 4. ¡LA CORRECCIÓN PARA EL RECORD!
+        var funcCtx = funcion.funcion(); 
+
+        // Inyectamos la instancia como el PRIMER parámetro
+        String nombreParamReceiver = funcCtx.parametros.get(0).id();
+        declararVariable(nombreParamReceiver, targetObj);
+
+        // 5. Evaluamos e inyectamos el resto de los parámetros enviados
+        if (ctx.node.args != null) {
+            for (int i = 0; i < ctx.node.args.size(); i++) {
+                ValueWrapper argVal = Visit(ctx.node.args.get(i));
+                String paramName = funcCtx.parametros.get(i + 1).id();
+                declararVariable(paramName, argVal);
+            }
+        }
+
+        ValueWrapper retorno = defaultVoid;
+        try {
+            Visit(funcCtx.cuerpo); 
+        } catch (ReturnException e) {
+            retorno = e.value; 
+        }
+
+        ambitos.remove(ambitos.size() - 1);
+        
+        return retorno;
+    }
+   
+         
 }
