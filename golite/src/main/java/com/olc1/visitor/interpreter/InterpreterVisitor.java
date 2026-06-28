@@ -201,32 +201,28 @@ public class InterpreterVisitor implements Visitor<ValueWrapper> {
     @Override
     public ValueWrapper visit(Statments.Context ctx) {
         for (ASTNode statment : ctx.statements) {
-            if (statment == null) {
-                continue;
-            }
+            if (statment == null) continue;
+            
             try {
                 Visit(statment);
+            } catch (com.olc1.ast.stm.ReturnException e) {
+                throw e; 
+
             } catch (BreakException | ContinueException e) {
                 if (profundidadCiclos > 0) {
-                    throw e;
+                    throw e; // Se propaga al ciclo
                 }
-
                 erroresSemanticos.add(new GoliteError(
                     "Semántico",
-                    e instanceof BreakException ? "sentencia break fuera de un ciclo" : "sentencia continue fuera de un ciclo",
-                    0,
-                    0
+                    (e instanceof BreakException) ? "sentencia break fuera de un ciclo" : "sentencia continue fuera de un ciclo",
+                    0, 0
                 ));
 
-           } catch (SemanticException e) {
-                erroresSemanticos.add(new GoliteError(
-                    "Semántico", 
-                    e.getMessage(), 
-                    e.linea, 
-                    e.columna
-                ));
+            } catch (SemanticException e) {
+                erroresSemanticos.add(new GoliteError("Semántico", e.getMessage(), e.linea, e.columna));
+                
             } catch (Exception e) {
-                erroresSemanticos.add(new GoliteError("Ejecución", e.getMessage(), 0, 0));
+                erroresSemanticos.add(new GoliteError("Ejecución", e.getMessage() != null ? e.getMessage() : "Error desconocido", 0, 0));
             }
         }
         return defaultVoid;
