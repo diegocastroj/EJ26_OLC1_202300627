@@ -169,6 +169,7 @@ public class GoliteFrame extends JFrame {
         barraMenu.onSave(e -> guardarArchivo());
         barraMenu.onExit(e -> System.exit(0));
         barraMenu.onTokens(e -> abrirReporteHtml("Reporte_Tokens.html"));
+        barraMenu.onAST(e -> abrirReporteHtml("AST_Graph.png"));
         barraMenu.onErrors(e -> { ; 
             abrirReporteHtml("Reporte_Errors.html");
         });
@@ -217,6 +218,11 @@ public class GoliteFrame extends JFrame {
             listaErrores.addAll(analizadorSintactico.erroresSintacticos);
             listaErrores.addAll(interprete.erroresSemanticos);
 
+            if (simboloRaiz != null && simboloRaiz.value instanceof ASTNode) {
+                com.olc1.reports.GeneradorAST genAST = new com.olc1.reports.GeneradorAST();
+                genAST.generar((ASTNode) simboloRaiz.value, "AST_Graph.dot", "AST_Graph.png");
+            }
+            
             ReportGenerator.generateTokenReport(rastreadorTokens.tokens, "Reporte_Tokens.html");
             ReportGenerator.generateErrorReport(listaErrores, "Reporte_Errors.html");
             com.olc1.reports.GeneradorHTML.generarTablaSimbolos(interprete.tablaSimbolos);
