@@ -20,8 +20,8 @@ public class InterpreterVisitor implements Visitor<ValueWrapper> {
     private final List<Map<String, ValueWrapper>> ambitos = new ArrayList<>();
     private int profundidadCiclos = 0;
 
-    // ---> NUEVO: Lista global para recolectar errores semánticos en frío <---
     public ArrayList<GoliteError> erroresSemanticos = new ArrayList<>();
+    public java.util.ArrayList<com.olc1.reports.Simbolo> tablaSimbolos = new java.util.ArrayList<>();
 
     public InterpreterVisitor() {
         // Inicializamos el entorno con el Ámbito Global (Posición 0)
@@ -61,12 +61,32 @@ public class InterpreterVisitor implements Visitor<ValueWrapper> {
         throw new RuntimeException("Variable no definida: " + nombre);
     }
 
-    private void declararVariable(String nombre, ValueWrapper valor) {
-        // Registra la variable de forma estricta en el entorno del tope de la pila
+    private void declararVariable(String nombre, ValueWrapper valor, int linea, int columna) {
         ambitos.get(ambitos.size() - 1).put(nombre, valor);
+        
+        String ambitoActual = (ambitos.size() == 1) ? "Global" : "Local";
+        String tipoSimbolo = "Variable";
+        
+        if (valor.getTypeName().equals("funcion")) {
+            tipoSimbolo = "Función";
+        } else if (valor.getTypeName().startsWith("[]")) {
+            tipoSimbolo = "Slice";
+        } else if (valor instanceof com.olc1.visitor.interpreter.values.StructValue) {
+            tipoSimbolo = "Struct (Instancia)";
+        } 
+        boolean existe = false;
+        for (com.olc1.reports.Simbolo s : tablaSimbolos) {
+            if (s.id.equals(nombre) && s.ambito.equals(ambitoActual)) {
+                existe = true; 
+                break;
+            }
+        }
+        
+        if (!existe) {
+            tablaSimbolos.add(new com.olc1.reports.Simbolo(nombre, tipoSimbolo, valor.getTypeName(), ambitoActual, linea, columna));
+        }
     }
 
-    // IMPLEMENTACIÓN DE LOS MÉTODOS VISIT, LÓGICA DEL COMPILADOR
 
     @Override
     public ValueWrapper visit(Integers.Context ctx) {
@@ -197,14 +217,16 @@ public class InterpreterVisitor implements Visitor<ValueWrapper> {
                     0,
                     0
                 ));
-            } catch (com.olc1.ast.stm.ReturnException e) {
-                throw e; 
-            } catch (Exception e) {
+
+           } catch (SemanticException e) {
                 erroresSemanticos.add(new GoliteError(
                     "Semántico", 
                     e.getMessage(), 
-                    0, 0 
+                    e.linea, 
+                    e.columna
                 ));
+            } catch (Exception e) {
+                erroresSemanticos.add(new GoliteError("Ejecución", e.getMessage(), 0, 0));
             }
         }
         return defaultVoid;
@@ -229,7 +251,7 @@ public class InterpreterVisitor implements Visitor<ValueWrapper> {
     public ValueWrapper visit(VarRef.Context ctx) {
         ValueWrapper val = obtenerVariable(ctx.name);
         if (val == null) {
-            throw new RuntimeException("La variable '" + ctx.name + "' no está definida en este contexto.");
+            throw new SemanticException("La variable '" + ctx.name + "' no está definida.", ctx.line, ctx.column);
         }
         return val;
     }
@@ -467,7 +489,7 @@ public class InterpreterVisitor implements Visitor<ValueWrapper> {
             throw new RuntimeException("La variable '" + ctx.name + "' ya fue declarada en este ambito.");
         }
         ValueWrapper val = Visit(ctx.value);
-        declararVariable(ctx.name, val);
+        declararVariable(ctx.name, val, ctx.line, ctx.column);
         return defaultVoid;
     }
 
@@ -520,7 +542,7 @@ public class InterpreterVisitor implements Visitor<ValueWrapper> {
             };
         }
         
-        declararVariable(ctx.name(), val);
+        declararVariable(ctx.name(), val, ctx.line(), ctx.column());
         return defaultVoid;
     }
 
@@ -549,7 +571,7 @@ public class InterpreterVisitor implements Visitor<ValueWrapper> {
 
     @Override
     public ValueWrapper visit(com.olc1.ast.stm.SwitchNode.Context ctx) {
-        
+
         ValueWrapper valorSwitch = Visit(ctx.expression);
         boolean ejecutado = false;
 
@@ -808,7 +830,7 @@ public class InterpreterVisitor implements Visitor<ValueWrapper> {
             }
         }
 
-        declararVariable(ctx.id, new FunctionValue(ctx, 0, 0));
+        declararVariable(ctx.id, new FunctionValue(ctx, 0, 0), 0, 0);
         
         return defaultVoid;
     }
@@ -839,7 +861,7 @@ public class InterpreterVisitor implements Visitor<ValueWrapper> {
         try {
             for (int i = 0; i < funcion.parametros.size(); i++) {
                 com.olc1.ast.stm.Parametro param = funcion.parametros.get(i);
-                declararVariable(param.id(), valoresEvaluados.get(i));
+                declararVariable(param.id(), valoresEvaluados.get(i), 0, 0);
             }
 
             if (funcion.cuerpo != null) {
@@ -882,7 +904,7 @@ public class InterpreterVisitor implements Visitor<ValueWrapper> {
             return defaultVoid;
         }
 
-        declararVariable(ctx.id, new StructBlueprint(ctx, 0, 0));
+        declararVariable(ctx.id, new StructBlueprint(ctx, 0, 0), 0, 0);
         
         return defaultVoid;
     }
@@ -1001,7 +1023,7 @@ public class InterpreterVisitor implements Visitor<ValueWrapper> {
             }
         }
 
-        declararVariable(ctx.id, new StructValue(ctx.tipo, propiedades, 0, 0));
+        declararVariable(ctx.id, new StructValue(ctx.tipo, propiedades, 0, 0), 0, 0);
         return defaultVoid;
     }
 
@@ -1015,7 +1037,7 @@ public class InterpreterVisitor implements Visitor<ValueWrapper> {
 
         java.util.ArrayList<ValueWrapper> listaVacia = new java.util.ArrayList<>();
 
-        declararVariable(ctx.id, new SliceValue(listaVacia, ctx.tipoBase, 0, 0));
+        declararVariable(ctx.id, new SliceValue(listaVacia, ctx.tipoBase, 0, 0), 0,0);
 
         return defaultVoid;
     }
@@ -1070,14 +1092,14 @@ public class InterpreterVisitor implements Visitor<ValueWrapper> {
 
         // Inyectamos la instancia como el PRIMER parámetro
         String nombreParamReceiver = funcCtx.parametros.get(0).id();
-        declararVariable(nombreParamReceiver, targetObj);
+        declararVariable(nombreParamReceiver, targetObj, 0, 0);
 
         // 5. Evaluamos e inyectamos el resto de los parámetros enviados
         if (ctx.node.args != null) {
             for (int i = 0; i < ctx.node.args.size(); i++) {
                 ValueWrapper argVal = Visit(ctx.node.args.get(i));
                 String paramName = funcCtx.parametros.get(i + 1).id();
-                declararVariable(paramName, argVal);
+                declararVariable(paramName, argVal, 0, 0);
             }
         }
 

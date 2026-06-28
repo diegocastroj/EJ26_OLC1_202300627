@@ -172,6 +172,8 @@ public class GoliteFrame extends JFrame {
         barraMenu.onErrors(e -> { ; 
             abrirReporteHtml("Reporte_Errors.html");
         });
+
+        barraMenu.onTablaSimbolos(e -> abrirReporteHtml("TablaSimbolos.html"));
         barraMenu.onAbout(e -> JOptionPane.showMessageDialog(
                 this,
                 "GoLite Compilador & IDE\nDesarrollador: Diego José Castro Lux\nUSAC 2026",
@@ -217,6 +219,7 @@ public class GoliteFrame extends JFrame {
 
             ReportGenerator.generateTokenReport(rastreadorTokens.tokens, "Reporte_Tokens.html");
             ReportGenerator.generateErrorReport(listaErrores, "Reporte_Errors.html");
+            com.olc1.reports.GeneradorHTML.generarTablaSimbolos(interprete.tablaSimbolos);
 
             areaConsola.append(interprete.output);
             areaConsola.append("\n\n[ÉXITO] Ejecución de fases finalizada.");
